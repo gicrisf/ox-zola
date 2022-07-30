@@ -4174,8 +4174,8 @@ INFO is a plist used as a communication channel."
                  (outputs . ,outputs)
                  (series . ,(org-hugo--delim-str-to-list (plist-get info :hugo-series)))
                  (slug . ,(plist-get info :hugo-slug))
-                 ;; (tags . ,tags)
-                 ;; (categories . ,categories)
+                 (tags . ,tags)
+                 (categories . ,categories)
                  (type . ,(plist-get info :hugo-type))
                  (url . ,(plist-get info :hugo-url))
                  (videos . ,(org-hugo--delim-str-to-list (plist-get info :hugo-videos)))
@@ -4251,12 +4251,12 @@ INFO is a plist used as a communication channel."
       ;; Overwrite the 'tags and 'categories key values in `data' with
       ;; the updated values.
       ;; https://stackoverflow.com/a/40815365/1219634
-      ;; (setf (alist-get 'tags data) tags)
-      ;; (setf (alist-get 'categories data) categories)
-      (setq taxonomies `(;; The order of elements below will be respected
-                         (tags . tags)
-                         (categories . categories)))
-      (setf (alist-get 'taxonomies data) taxonomies))
+      (setf (alist-get 'tags data) tags)
+      (setf (alist-get 'categories data) categories))
+      ;; (setq taxonomies `(;; The order of elements below will be respected
+      ;;                   (tags . tags)
+      ;;                   (categories . categories)))
+      ;; (setf (alist-get 'taxonomies data) taxonomies))
 
     (setq data (org-hugo--replace-keys-maybe data info))
     (setq ret (org-hugo--gen-front-matter data fm-format))
@@ -4307,16 +4307,16 @@ are \"toml\" and \"yaml\"."
       ;; (message "Categories are: %s" (alist-get 'categories data))
 
       ;; Build taxonomies alist
-      ;; DONE delete tags and categories field in place with `delete`
-      ;; DONE Move this function up
-      ;; (setq taxonomies `(;; The order of elements below will be respected
-      ;;                    (tags . ,(alist-get 'tags data))
-      ;;                   (categories . ,(alist-get 'categories data))))
+      ;; TODO delete tags and categories field in place with `delete`
+      ;; TODO Move this function up
+      (setq taxonomies `(;; The order of elements below will be respected
+                         (tags . ,(alist-get 'tags data))
+                         (categories . ,(alist-get 'categories data))))
 
       ;; (message "Taxonomies will be: %s" taxonomies)
 
       ;; Replace taxonomies in data with actual taxonomies
-      ;; (setf (alist-get 'taxonomies data) taxonomies)
+      (setf (alist-get 'taxonomies data) taxonomies)
       ;; (setq data (append data taxonomies))
       ;; (message "Show data alist %s" data)
 
