@@ -4174,8 +4174,8 @@ INFO is a plist used as a communication channel."
                  (outputs . ,outputs)
                  (series . ,(org-hugo--delim-str-to-list (plist-get info :hugo-series)))
                  (slug . ,(plist-get info :hugo-slug))
-                 (tags . ,tags)
-                 (categories . ,categories)
+                 ;; (tags . ,tags)
+                 ;; (categories . ,categories)
                  (type . ,(plist-get info :hugo-type))
                  (url . ,(plist-get info :hugo-url))
                  (videos . ,(org-hugo--delim-str-to-list (plist-get info :hugo-videos)))
@@ -4183,6 +4183,7 @@ INFO is a plist used as a communication channel."
                  (headless . ,headless)
                  (creator . ,creator)
                  (locale . ,locale)
+                 (taxonomies . ,taxonomies)
                  (blackfriday . ,blackfriday)))
          (data `,(append data weight-data custom-fm-data
                          (list
@@ -4250,8 +4251,12 @@ INFO is a plist used as a communication channel."
       ;; Overwrite the 'tags and 'categories key values in `data' with
       ;; the updated values.
       ;; https://stackoverflow.com/a/40815365/1219634
-      (setf (alist-get 'tags data) tags)
-      (setf (alist-get 'categories data) categories))
+      ;; (setf (alist-get 'tags data) tags)
+      ;; (setf (alist-get 'categories data) categories)
+      (setq taxonomies `(;; The order of elements below will be respected
+                         (tags . tags)
+                         (categories . categories)))
+      (setf (alist-get 'taxonomies data) taxonomies))
 
     (setq data (org-hugo--replace-keys-maybe data info))
     (setq ret (org-hugo--gen-front-matter data fm-format))
@@ -4291,6 +4296,30 @@ are \"toml\" and \"yaml\"."
   (if (string= format "yaml")
       (org-hugo--gen-yaml-front-matter data)
     (let ((tomelr-indent-multi-line-strings t))
+      ;; Will commit this block of comments to remember the process
+      ;; Final manipulation of data in this position?
+      ;; (setq taxonomies '((alist-get 'tags data) (alist-get 'categories data)))
+      ;; (message "taxonomies list %s" taxonomies)
+      ;;
+      ;; DEBUG messages (temp)
+      ;; (message "Show data alist %s" data)
+      ;; (message "Tags are: %s" (alist-get 'tags data))
+      ;; (message "Categories are: %s" (alist-get 'categories data))
+
+      ;; Build taxonomies alist
+      ;; DONE delete tags and categories field in place with `delete`
+      ;; DONE Move this function up
+      ;; (setq taxonomies `(;; The order of elements below will be respected
+      ;;                    (tags . ,(alist-get 'tags data))
+      ;;                   (categories . ,(alist-get 'categories data))))
+
+      ;; (message "Taxonomies will be: %s" taxonomies)
+
+      ;; Replace taxonomies in data with actual taxonomies
+      ;; (setf (alist-get 'taxonomies data) taxonomies)
+      ;; (setq data (append data taxonomies))
+      ;; (message "Show data alist %s" data)
+
       (format "+++\n%s\n+++\n" (tomelr-encode data)))))
 
 (defun org-hugo--selective-property-inheritance ()
