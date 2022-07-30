@@ -4183,7 +4183,7 @@ INFO is a plist used as a communication channel."
                  (headless . ,headless)
                  (creator . ,creator)
                  (locale . ,locale)
-                 (taxonomies . ,taxonomies)
+                 (taxonomies . '())
                  (blackfriday . ,blackfriday)))
          (data `,(append data weight-data custom-fm-data
                          (list
