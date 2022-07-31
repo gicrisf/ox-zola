@@ -4168,7 +4168,7 @@ INFO is a plist used as a communication channel."
                  (isCJKLanguage . ,(org-hugo--plist-get-true-p info :hugo-iscjklanguage))
                  (keywords . ,keywords)
                  (layout . ,(plist-get info :hugo-layout))
-                 (lastmod . ,(org-hugo--format-date :hugo-lastmod info))
+                 (updated . ,(org-hugo--format-date :hugo-lastmod info))
                  (linkTitle . ,(plist-get info :hugo-linktitle))
                  (markup . ,(plist-get info :hugo-markup))
                  (outputs . ,outputs)
