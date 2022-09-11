@@ -1,210 +1,31 @@
-#+title: Ox-Hugo: A carefully crafted Org exporter back-end for Hugo
-#+author: Kaushal Modi
-[[https://github.com/kaushalmodi/ox-hugo/actions][https://github.com/kaushalmodi/ox-hugo/actions/workflows/test.yml/badge.svg]] [[https://melpa.org/#/ox-hugo][file:https://melpa.org/packages/ox-hugo-badge.svg]] [[https://www.gnu.org/licenses/gpl-3.0][https://img.shields.io/badge/License-GPL%20v3-blue.svg]]
+#+title: Ox-Zola
+#+author: Giovanni Crisalfi
 
-/If you have any questions or if you have anything interesting to
-share related to ox-hugo, feel free to do so on [[https://github.com/kaushalmodi/ox-hugo/discussions][Discussions]]!/
+=ox-zola= is an Org exporter backend for Zola-compatible Markdown. It
+generates both the markdown body and the TOML frontmatter.
 
-=ox-hugo= is an Org exporter backend that exports Org to
-[[https://gohugo.io/][Hugo]]-compatible Markdown ([[https://github.com/russross/blackfriday][Blackfriday]]) and also generates the
-front-matter (in TOML or YAML format).
+---
 
-The =ox-hugo= backend extends from a /parent/ backend
-=ox-blackfriday.el=. The latter is the one that primarily does the
-Blackfriday-friendly Markdown content generation. The main job of
-=ox-hugo= is to generate the front-matter for each exported content
-file, and then append that generated Markdown to it.
+=ox-zola= is just a fork of the famous =ox-hugo= exporter.
+All the stuff you can do with =ox-hugo= are possible in =ox-zola=.
+I changed the name mostly to make the exporter easier to find for Zola users.
 
-There are, though, few functions that =ox-hugo.el= overrides over
-those by =ox-blackfriday.el=.
-
------
-See the [[https://ox-hugo.scripter.co/doc/examples/][Real World Examples]] section to quickly jump to sites generated
-using =ox-hugo= and their Org sources.
-* Table of Contents
-- [[#screenshots][Screenshots]]
-- [[#documentation][Documentation]]
-  - [[#source-of-the-documentation-site][Source of the Documentation site]]
-- [[#demo][Demo]]
-- [[#installation][Installation]]
-  - [[#use-package][Use Package]]
-  - [[#spacemacs][Spacemacs]]
-- [[#usage][Usage]]
-  - [[#before-you-export][Before you export]]
-  - [[#export-bindings][Export bindings]]
-  - [[#customization-options][Customization Options]]
-- [[#thanks][Thanks]]
-
-* Screenshots
-Before you read further, you can see below how =ox-hugo= translates
-Org to Markdown (Org on the left; exported Markdown with Hugo
-front-matter on the right).
-** One post per Org subtree (preferred)
 [[https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/doc/static/images/one-post-per-subtree.png][https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/doc/static/images/one-post-per-subtree.png]]
-- Files in above screenshot :: [[https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/test/site/content-org/screenshot-subtree-export-example.org][Org]] -> [[https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/test/site/content/writing-hugo-blog-in-org-subtree-export.md][Markdown]]
-** One post per Org file
-[[https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/doc/static/images/one-post-per-file.png][https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/doc/static/images/one-post-per-file.png]]
-- Files in above screenshot :: [[https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/test/site/content-org/writing-hugo-blog-in-org-file-export.org][Org]] -> [[https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/test/site/content/writing-hugo-blog-in-org-file-export.md][Markdown]]
-** Editorial
-The preferred way to organize the posts is as Org subtrees (also the
-main reason to write this package, as nothing like that was out there)
-as it makes the meta-data management for Hugo front-matter pretty
-effortless.
 
-If you are a /one Org-file per post/ type of a person, that flow works
-too! Just note that in this flow many of those =#+hugo_= properties
-need to be managed manually.. just as one would manage the front-matter
-in Markdown files --- See the Org versions in the above screenshots for
-comparison.
-* Documentation
-=ox-hugo= uses *itself* to generate its documentation!
-
+Go read the =ox-hugo= documentation to read about it:
 https://ox-hugo.scripter.co/
-
-You can generate the same too! Simply clone this repo and do =make
-doc_md=.
-
-*Make sure you visit the above link to read more on:*
-- [[https://ox-hugo.scripter.co/doc/why-ox-hugo/][Why =ox-hugo=?]]
-- [[https://ox-hugo.scripter.co/doc/auto-export-on-saving/][Auto exporting to Markdown each time the Org file is saved]]
-- [[https://ox-hugo.scripter.co/doc/org-capture-setup/][Using Org Capture to start a new blog post]]
-- .. and many more topics and examples
-** Source of the Documentation site
-- [[https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/doc/ox-hugo-manual.org][Org source]]
-
-The documentation site is published by first using =ox-hugo= to
-export from Org to Markdown, and then finally =hugo=.
-/So no Markdown files are committed in the =doc/content/= directory./
-* Demo
-[[https://github.com/kaushalmodi/ox-hugo/tree/main/test/site/content-org][Org source]] → [[https://github.com/kaushalmodi/ox-hugo/tree/main/test/site/content][=ox-hugo= Exported Markdown]] → [[https://ox-hugo.scripter.co/test/]]
-
-The test site uses a [[https://github.com/kaushalmodi/hugo-bare-min-theme][minimal]] theme written just for debug purposes
-(not extra aesthetics). The test site is designed to verify if all the
-content translates from Org to Markdown as expected.
-
-/See [[https://themes.gohugo.io/][Hugo Themes]] for examples of really good site prettification and
-presentation styles./
 
 * Installation
 This package requires at least GNU Emacs *26.3* and
-Org Mode *9.0*. It is available on Melpa
-([[https://melpa.org/#/ox-hugo]]), and it's recommended to install this
-package from [[https://melpa.org/#/getting-started][Melpa]] (​_not_ Melpa /Stable/).
+Org Mode *9.0*.
+It's not available on Melpa, because it's not ready and I made it for
+my personal use.
 
-You will need to /require/ the package after installing it to get the
-=ox-hugo= export options in the /Org Export Dispatcher/ menu (the one
-you see when you hit =C-c C-e= to initiate any export).
+You can easily install it with =use-package= or with =package!= macro,
+if you're on Doom Emacs, like me.
 
-You can do that by adding the below to your config:
-#+begin_src emacs-lisp
-(with-eval-after-load 'ox
-  (require 'ox-hugo))
-#+end_src
-** Use Package
-If you use [[https://github.com/jwiegley/use-package][=use-package=]], you can do the below instead:
-#+begin_src emacs-lisp
-(use-package ox-hugo
-  :ensure t   ;Auto-install the package from Melpa
-  :pin melpa  ;`package-archives' should already have ("melpa" . "https://melpa.org/packages/")
-  :after ox)
-#+end_src
-
-** Spacemacs
-Spacemacs users can use =ox-hugo= by setting the variable
-=org-enable-hugo-support=.
-
-#+begin_src emacs-lisp
-(setq-default dotspacemacs-configuration-layers
-              '((org :variables
-                  org-enable-hugo-support t)))
-#+end_src
-
-/This was verified to work on Spacemacs =develop= branch ([[https://github.com/kaushalmodi/ox-hugo/pull/440][ref]])./
-* Usage
-#+begin_note
-Jump to the [[https://ox-hugo.scripter.co/doc/quick-start/][Quick Start]] section to quickly try
-out ~ox-hugo~ with Hugo.
-#+end_note
-** Before you export
-Before you export check that these properties are set as you need:
-- HUGO_BASE_DIR :: Root directory of the source for the Hugo site. If
-     this is set to =~/hugo/=, the exported Markdown files will be saved
-     to =~/hugo/content/<HUGO_SECTION>/= directory[fn:-1-section_more].  By
-     default, the Markdown files reside in a hierarchy under the
-     =content/= directory in the site root directory ([[https://gohugo.io/content-management/organization/][ref]]).
-
-     If you try to export without setting this property, you will get
-     this error:
-     #+begin_example
-       user-error: It is mandatory to set the HUGO_BASE_DIR property
-                   or the `org-hugo-base-dir' local variable
-     #+end_example
-     This property can be set by one of two ways:
-  1. Setting the ~#+hugo_base_dir:~ keyword in the Org file.
-  2. Setting the ~org-hugo-base-dir~ variable in a ~.dir-locals.el~ or
-     File Local Variables.
-
-- HUGO_SECTION :: The default Hugo section name for all the posts.
-     See [[https://gohugo.io/content-management/sections/][here]] for more information on Hugo sections.  It is common for
-     this property to be set to =posts= or =blog=.  The default value is
-     set using =org-hugo-default-section-directory=. See
-     [[https://ox-hugo.scripter.co/doc/hugo-section/][Hugo Section]] for details.
-
-*Important*: If you choose to export an Org subtree as a post, you
- need to set the =EXPORT_FILE_NAME= subtree property. That property is
- used by this package to figure out where the current post starts. For
- that reason, *a subtree with =EXPORT_FILE_NAME= property cannot nest
- another subtree with that property*. If you can analogize with the
- [[https://en.wikipedia.org/wiki/Tree_(data_structure)][branch/leaf data structure terminlogy]], then the subtrees with
- =EXPORT_FILE_NAME= property need to be /leaf nodes/.
-
-[fn:-1-section_more] The ~HUGO_SECTION~ is the bare-minimum requirement
-to specify the destination path. That path can be further tweaked
-using ~HUGO_BUNDLE~ key (and the associated ~EXPORT_HUGO_BUNDLE~
-property), and the ~EXPORT_HUGO_SECTION_FRAG~ property (only for
-/per-subtree/ exports).
-** Export bindings
-The common =ox-hugo= export bindings are:
-*** For both one-post-per-subtree and one-post-per-file flows
-- =C-c C-e H H= :: Export "What I Mean". This is same as calling the
-     ~org-hugo-export-wim-to-md~ function interactively or via
-     ~(org-hugo-export-wim-to-md)~ in Emacs Lisp.
-  - If point is in a /valid Hugo post subtree/, export that
-    subtree to a Hugo post in Markdown.
-
-    A /valid Hugo post subtree/ is an Org subtree that has the
-    =EXPORT_FILE_NAME= property set. *Note that a subtree with
-    =EXPORT_FILE_NAME= property cannot nest a subtree with the same
-    property set.* If you can analogize with the [[https://en.wikipedia.org/wiki/Tree_(data_structure)][branch/leaf data
-    structure terminlogy]], then the subtrees with =EXPORT_FILE_NAME=
-    property need to be /leaf nodes/.
-  - If the file is intended to be exported as a whole (i.e. has the
-    =#+title= keyword), export the whole Org file to a Hugo post in
-    Markdown.
-- =C-c C-e H A= :: Export *all* "What I Mean". This is same as
-     executing ~(org-hugo-export-wim-to-md :all-subtrees)~ in Emacs Lisp.
-  - If the Org file has one or more 'valid Hugo post subtrees', export
-    them to Hugo posts in Markdown.
-  - If the file is intended to be exported as a whole (i.e. no 'valid
-    Hugo post subtrees' at all, and has the =#+title= keyword), export
-    the whole Org file to a Hugo post in Markdown.
-*** For only the one-post-per-file flow
-- =C-c C-e H h= :: Export the Org file to a Hugo post in
-     Markdown. This is same as calling the ~org-hugo-export-to-md~
-     function interactively.
-
-/Also see the [[https://ox-hugo.scripter.co/doc/auto-export-on-saving/][Auto Exporting]]
-section./
-** Customization Options
-Do =M-x customize-group=, and select =org-export-hugo= to see the
-available customization options for this package.
-* Thanks
-- Matt Price ([[https://github.com/titaniumbones][@titaniumbones]])
-- Puneeth Chaganti ([[https://github.com/punchagan][@punchagan]])
-- Also thanks to
-  ~http://whyarethingsthewaytheyare.com/setting-up-the-blog/~ (/not
-  hyperlinking the link as it is insecure --- not https/),
-  ~http://www.holgerschurig.de/en/emacs-blog-from-org-to-hugo/~ (/not
-  hyperlinking the link as it is insecure --- not https/) and the
-  [[https://github.com/chaseadamsio/goorgeous][=goorgeous=]] project by Chase Adams ([[https://github.com/chaseadamsio][@chaseadamsio]]) for inspiration
-  to start this project.
+* Features
+- [X] Custom frontmatters parameters for Zola
+- [X] Lastmod/updated tags for Zola
+- [X] Taxonomies for Zola
+- [ ] Exports with images in the same directories
