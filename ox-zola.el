@@ -7,8 +7,8 @@
 ;; Created: marzo 18, 2023
 ;; Modified: marzo 18, 2023
 ;; Version: 0.0.1
-;; Keywords: abbrev bib c calendar comm convenience data docs emulations extensions faces files frames games hardware help hypermedia i18n internal languages lisp local maint mail matching mouse multimedia news outlines processes terminals tex tools unix vc wp
-;; Homepage: https://github.com/cromo/ox-zola
+;; Keywords: Org, markdown, docs
+;; Homepage: https://github.com/gicrisf/ox-zola
 ;; Package-Requires: ((emacs "27.2"))
 ;;
 ;; This file is not part of GNU Emacs.

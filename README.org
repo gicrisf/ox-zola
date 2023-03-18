@@ -1,30 +1,55 @@
 #+title: Ox-Zola
 #+author: Giovanni Crisalfi
 
-=ox-zola= is an Org exporter backend for Zola-compatible Markdown.
-It generates both the markdown body and the TOML frontmatter.
+=ox-zola= is an Org exporter backend that exports Org to Markdown,
+caring for both the body and the TOML frontmatter in a way that's compatible with the static site generator Zola.
 
----
+It started as a fork of the famous =ox-hugo= exporter, but it now is a
+different package that runs on top of =ox-hugo= itself. This way, you
+can receive =ox-hugo= updates without being restrained by the progress
+of this package. Even so, *I suggest pinning* =ox-hugo= to the most
+recent working version to avoid breaking changes after updates. Having a dedicated package with a different name is also helpful to let Zola users find this solution.
 
-=ox-zola= is just a fork of the famous =ox-hugo= exporter; that means most of the stuff you can do with =ox-hugo= is possible with =ox-zola=.
-I changed the name to make this exporter easier to find for Zola users.
 
-[[https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/doc/static/images/one-post-per-subtree.png][https://raw.githubusercontent.com/kaushalmodi/ox-hugo/main/doc/static/images/one-post-per-subtree.png]]
+Being this package built like a layer on top of =ox-hugo=, most of the stuff you can do with =ox-hugo= is possible with =ox-zola= too, and I suggest reading the documentation to have a grasp of how the entire exporter works.
 
-In the previous image you can see a screenshot with the two relevant buffers.
-Go read the [[https://ox-hugo.scripter.co/][ox-hugo documentation]] to learn something about the features of this exporter.
+Being this package built like a layer on top of =ox-hugo=, most of the
+stuff you can do with =ox-hugo= is possible with =ox-zola= too; so, I suggest reading the [[https://ox-hugo.scripter.co/][ox-hugo documentation]] to have a grasp of how the entire exporter works.
+
+* Warning
+*=ox-zola= breaks =ox-hugo=!*
+
+Usually, people use a single static site generator, so this shouldn't
+be a problem for 99% of you. But, if you need to use both Zola and
+Hugo on the same machine remember that =ox-zola= overwrites the
+behavior of =ox-hugo= and could alter the output. However, I plan to
+solve this problem in the future.
 
 * Installation
-This package requires at least GNU Emacs *26.3* and
-Org Mode *9.0*.
-It's not available on Melpa, because it's not ready and I made it for
-my personal use.
+Since this package was born for my personal use and it's not perfect
+yet, I didn't make it available on Melpa. You can easily install it
+with =straight=, =use-package= or with =package!= macro, if you're on
+Doom Emacs, like me (see the example below).
 
-You can easily install it with =use-package= or with =package!= macro,
-if you're on Doom Emacs, like me.
+#+begin_src emacs-lisp
+;; Ox-hugo is required
+(package! ox-hugo)
+;; Ox-zola
+(package! ox-zola :recipe (:host github :repo "gicrisf/ox-zola"))
+#+end_src
 
 * Additional features
 - [X] Custom frontmatters parameters for Zola
 - [X] Lastmod/updated tags for Zola
 - [X] Taxonomies for Zola
 - [ ] Exports with images in the same directories
+- [ ] Avoid breaking ox-hugo functions while ox-zola is installed.
+
+* Donate
+Did you find this package useful?
+Why don't you help me keep awake by buying me a coffee?
+
+[[https://ko-fi.com/V7V425BFU][https://ko-fi.com/img/githubbutton_sm.svg]]
+
+* License
+Open sourced under the [[./LICENSE][GPL-3.0 license]].
