@@ -3,7 +3,8 @@
 [[https://www.gnu.org/licenses/gpl-3.0][https://img.shields.io/badge/License-GPL%20v3-blue.svg]]
 
 =ox-zola= is an Org exporter backend that exports Org to Markdown,
-caring for both the body and the TOML frontmatter in a way that's compatible with the static site generator Zola.
+caring for both the body and the TOML frontmatter in a way that's
+compatible with [[https://www.getzola.org/][the static site generator Zola]].
 
 It started as a fork of the famous =ox-hugo= exporter, but it now is a
 different package that runs on top of =ox-hugo= itself. This way, you
