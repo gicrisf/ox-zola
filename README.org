@@ -12,9 +12,6 @@ can receive =ox-hugo= updates without being restrained by the progress
 of this package. Even so, *I suggest pinning* =ox-hugo= to the most
 recent working version to avoid breaking changes after updates. Having a dedicated package with a different name is also helpful to let Zola users find this solution.
 
-
-Being this package built like a layer on top of =ox-hugo=, most of the stuff you can do with =ox-hugo= is possible with =ox-zola= too, and I suggest reading the documentation to have a grasp of how the entire exporter works.
-
 Being this package built like a layer on top of =ox-hugo=, most of the
 stuff you can do with =ox-hugo= is possible with =ox-zola= too; so, I suggest reading the [[https://ox-hugo.scripter.co/][ox-hugo documentation]] to have a grasp of how the entire exporter works.
 
@@ -44,7 +41,8 @@ Doom Emacs, like me (see the example below).
 - [X] Custom frontmatters parameters for Zola
 - [X] Lastmod/updated tags for Zola
 - [X] Taxonomies for Zola
-- [ ] Exports with images in the same directories
+- [X] Zola shortcodes
+- [ ] Exports with images
 - [ ] Avoid breaking ox-hugo functions while ox-zola is installed.
 
 * Donate
