@@ -6,7 +6,7 @@
 ;; Maintainer: gicrisf <giovanni.crisalfi@protonmail.com>
 ;; Created: marzo 18, 2023
 ;; Modified: marzo 18, 2023
-;; Version: 0.0.1
+;; Version: 0.0.2
 ;; Keywords: Org, markdown, docs
 ;; Homepage: https://github.com/gicrisf/ox-zola
 ;; Package-Requires: ((emacs "27.2"))
@@ -25,6 +25,37 @@
 ;; This says that shell-mode is defined in shell.el (the ‘.el’ can be omitted).
 ;; The compiler takes for granted that that file really defines the function, and does not check.
 (declare-function org-hugo-pandoc-cite--meta-data-generator "ox-hugo-pandoc-cite")
+
+(defcustom ox-zola-special-block-type-properties '(("audio" . (:raw t))
+                                                   ;; ("youtube" . (:raw t))
+                                                   ("youtube" . (:trim-pre t :trim-post t)))
+
+  "Alist for storing default properties for special block types.
+
+Each element of the alist is of the form (TYPE . PLIST) where
+TYPE is a string holding the special block's type and PLIST is a
+property list for that TYPE.
+
+The TYPE string could be any special block type like an HTML
+inline or block tag, or name of a Hugo shortcode, or any random
+string.
+
+Properties recognized in the PLIST:
+
+- :raw :: When set to t, the contents of the special block as
+          exported raw i.e. as typed in the Org buffer.
+
+- :trim-pre :: When set to t, the whitespace before the special
+               block is removed.
+
+- :trim-post :: When set to t, the whitespace after the special
+               block is removed.
+
+For the special block types not specified in this variable, the
+default behavior is same as if (:raw nil :trim-pre nil :trim-post
+nil) plist were associated with them."
+  :group 'ox-zola
+  :type '(alist :key-type string :value-type (plist :key-type symbol :value-type boolean)))
 
 (defun ox-zola--get-front-matter (info)
   "Return a Zola front-matter string.
@@ -308,6 +339,99 @@ are \"toml\" and \"yaml\"."
       ;; (message "Show data alist %s" data)
 
       (format "+++\n%s\n+++\n" (tomelr-encode data)))))
+
+(defun ox-zola-special-block (special-block contents info)
+  (let*
+    ((block-type (org-element-property :type special-block))
+     (block-type-plist (cdr (assoc block-type ox-zola-special-block-type-properties)))
+     (header (org-babel-parse-header-arguments
+              (car (org-element-property :header special-block))))
+     (trim-pre (or (alist-get :trim-pre header) ;`:trim-pre' in #+header has higher precedence.
+                   (plist-get block-type-plist :trim-pre)))
+     (trim-pre (org-hugo--value-get-true-p trim-pre)) ;If "nil", converts to nil
+     (trim-pre-tag (if trim-pre org-hugo--trim-pre-marker ""))
+     (last-element-p (null (org-export-get-next-element special-block info)))
+     (trim-post (unless last-element-p ;No need to add trim-post markers if this is the last element.
+                  (or (alist-get :trim-post header) ;`:trim-post' in #+header has higher precedence.
+                      (plist-get block-type-plist :trim-pre))))
+     (trim-post (org-hugo--value-get-true-p trim-post)) ;If "nil", converts to nil
+     (trim-post-tag (if trim-post org-hugo--trim-post-marker ""))
+     (paired-shortcodes (let* ((str (plist-get info :hugo-paired-shortcodes))
+                               (str-list (when (org-string-nw-p str)
+                                           (split-string str " "))))
+                          str-list))
+     (sc-regexp "\\`%%?%s\\'") ;Regexp to match an element from `paired-shortcodes'
+     (html-attr (org-export-read-attribute :attr_html special-block))
+     (caption (plist-get html-attr :caption))
+     (contents (when (stringp contents)
+                 (org-trim
+                  (if (plist-get block-type-plist :raw)
+                      ;; https://lists.gnu.org/r/emacs-orgmode/2022-01/msg00132.html
+                      (org-element-interpret-data (org-element-contents special-block))
+                    contents)))))
+    ;; (message "[ox-zola-spl-blk DBG] block-type: %s" block-type)
+    ;; (message "[ox-zola-spl-blk DBG] last element?: %s" (null (org-export-get-next-element special-block info)))
+    ;; (message "[ox-zola-spl-blk DBG] %s: header: %s" block-type header)
+    ;; (message "[ox-zola-spl-blk DBG] %s: trim-pre (type = %S): %S" block-type (type-of trim-pre) trim-pre)
+    ;; (message "[ox-zola-spl-blk DBG] %s: trim-post (type = %S): %S" block-type (type-of trim-post) trim-post)
+    (plist-put info :type-plist block-type-plist)
+    (plist-put info :trim-pre-tag trim-pre-tag)
+    (plist-put info :trim-post-tag trim-post-tag)
+    (when contents
+      (cond
+       ;; https://emacs.stackexchange.com/a/28685/115
+       ((cl-member block-type paired-shortcodes
+                   ;; If `block-type' is "foo", check if any of the
+                   ;; elements in `paired-shortcodes' is "foo" or
+                   ;; "%foo".
+                   :test (lambda (b sc) ;`sc' would be an element from `paired-shortcodes'
+                           (string-match-p (format sc-regexp b) sc)))
+        (let* ((attr-sc (org-export-read-attribute :attr_shortcode special-block))
+               ;; Positional arguments.
+               (pos-args (and (null attr-sc)
+                              ;; If the shortcode attributes are not of
+                              ;; the type ":foo bar" but are something
+                              ;; like "foo bar".
+                              (let* ((raw-list (org-element-property :attr_shortcode special-block))
+                                     (raw-str (mapconcat #'identity raw-list " ")))
+                                (org-string-nw-p raw-str))))
+        
+               ;; Named arguments.
+               (named-args (unless pos-args
+                             (let* ((raw-list (org-element-property :attr_shortcode special-block))
+                                    (couples
+                                     (cl-loop for (a b) on attr-sc by #'cddr while b
+                                              collect (list (substring (symbol-name a) 1) b)))
+                                    (raw-str
+                                     (mapconcat (lambda (x) (concat (car x) "=" (car (cdr x)) )) couples ", ")))
+                               (org-string-nw-p raw-str))))
+        
+               (sc-args (or pos-args named-args))
+               (sc-args (if sc-args
+                            (concat " " sc-args " ")
+                          ""))
+               (matched-sc-str (car
+                                (cl-member block-type paired-shortcodes
+                                           :test (lambda (b sc) ;`sc' would be an element from `paired-shortcodes'
+                                                   (string-match-p (format sc-regexp b) sc)))))
+        
+               (sc-begin (format "%s{%s %s(%s) %s}"
+                                 trim-pre-tag "%" block-type sc-args "%"))
+               (sc-end (format "{%s end %s}%s"
+                               "%" "%" trim-post-tag)))
+        
+          (message "[ox-zola-spl-blk DBG] attr-sc1: %s"
+                   (org-element-property :attr_shortcode special-block))
+          (message "[ox-zola-spl-blk DBG] attr-sc: %s" attr-sc)
+          (message "[ox-zola-spl-blk DBG] pos-args: %s" pos-args)
+          (message "[ox-zola-spl-blk DBG] named-args: %s" named-args)
+        
+          (format "%s\n%s\n%s"
+                  sc-begin contents sc-end))
+        )
+       (t
+        (org-blackfriday-special-block special-block contents info)))
+      )))
 
 (advice-add 'org-hugo--get-front-matter :override #'ox-zola--get-front-matter)
 (advice-add 'org-hugo--gen-front-matter :override #'ox-zola--gen-front-matter)
