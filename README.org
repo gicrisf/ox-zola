@@ -42,7 +42,7 @@ Doom Emacs, like me (see the example below).
 - [X] Lastmod/updated tags for Zola
 - [X] Taxonomies for Zola
 - [X] Zola shortcodes
-- [ ] Exports with images
+- [X] Exports with images
 - [ ] Avoid breaking ox-hugo functions while ox-zola is installed.
 
 * Donate
