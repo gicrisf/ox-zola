@@ -15,14 +15,9 @@ recent working version to avoid breaking changes after updates. Having a dedicat
 Being this package built like a layer on top of =ox-hugo=, most of the
 stuff you can do with =ox-hugo= is possible with =ox-zola= too; so, I suggest reading the [[https://ox-hugo.scripter.co/][ox-hugo documentation]] to have a grasp of how the entire exporter works.
 
-* Warning
-=ox-zola= breaks =ox-hugo=!
-
-Usually, people use a single static site generator, so this shouldn't
-be a problem for 99% of you. But, if you need to use both Zola and
-Hugo on the same machine remember that =ox-zola= overwrites the
-behavior of =ox-hugo= and could alter the output. However, I plan to
-solve this problem in the future.
+Usually, people use a single static site generator, but if you have
+different websites that happen to be generated with Zola and Hugo,
+you're covered. =ox-zola= doesn't break =ox-hugo=!
 
 * Installation
 Since this package was born for my personal use and it's not perfect
@@ -43,7 +38,7 @@ Doom Emacs, like me (see the example below).
 - [X] Taxonomies for Zola
 - [X] Zola shortcodes
 - [X] Exports with images
-- [ ] Avoid breaking ox-hugo functions while ox-zola is installed.
+- [X] Avoid breaking ox-hugo functions while ox-zola is installed.
 
 * Donate
 Did you find this package useful?

@@ -6,7 +6,7 @@
 ;; Maintainer: gicrisf <giovanni.crisalfi@protonmail.com>
 ;; Created: marzo 18, 2023
 ;; Modified: marzo 18, 2023
-;; Version: 0.0.3
+;; Version: 0.0.4
 ;; Keywords: Org, markdown, docs
 ;; Homepage: https://github.com/gicrisf/ox-zola
 ;; Package-Requires: ((emacs "27.2"))
@@ -795,14 +795,26 @@ and rewrite link paths to make blogging more seamless."
                ""))))
      )))
 
-(advice-add 'org-hugo--get-front-matter :override #'ox-zola--get-front-matter)
-(advice-add 'org-hugo--gen-front-matter :override #'ox-zola--gen-front-matter)
-(advice-add 'org-hugo-link :override #'ox-zola-link)
+(defun ox-zola--sandwich-advice (fun)
+  "Return FUN by temporarily advising other fundamental functions."
+  (lambda () (progn
+               (advice-add 'org-hugo--get-front-matter :override #'ox-zola--get-front-matter)
+               (advice-add 'org-hugo--gen-front-matter :override #'ox-zola--gen-front-matter)
+               (advice-add 'org-hugo-link :override #'ox-zola-link)
+               (funcall fun)
+               (advice-remove 'org-hugo--get-front-matter #'ox-zola--get-front-matter)
+               (advice-remove 'org-hugo--gen-front-matter #'ox-zola--gen-front-matter)
+               (advice-remove 'org-hugo-link #'ox-zola-link))))
 
-(defalias 'ox-zola-export-wim-to-md 'org-hugo-export-wim-to-md)
-(defalias 'ox-zola-export-to-md 'org-hugo-export-to-md)
-(defalias 'ox-zola-debug-info 'org-hugo-debug-info)
-(defalias 'ox-zola-auto-export-mode 'org-hugo-auto-export-mode)
+(defun ox-zola-export-wim-to-md ()
+  "Export the current subtree/all subtrees/current file to a Zola post."
+  (interactive)
+  (funcall (ox-zola--sandwich-advice #'org-hugo-export-wim-to-md)))
+
+(defun ox-zola-export-to-md ()
+  "Export current buffer to a Zola-compatible Markdown file."
+  (interactive)
+  (funcall (ox-zola--sandwich-advice #'org-hugo-export-to-md)))
 
 (provide 'ox-zola)
 ;;; ox-zola.el ends here
