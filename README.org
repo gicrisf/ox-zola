@@ -2,37 +2,53 @@
 #+author: Giovanni Crisalfi
 [[https://www.gnu.org/licenses/gpl-3.0][https://img.shields.io/badge/License-GPL%20v3-blue.svg]]
 
-=ox-zola= is an Org exporter backend that exports Org to Markdown,
-caring for both the body and the TOML frontmatter in a way that's
-compatible with [[https://www.getzola.org/][the static site generator Zola]].
+Ox-zola is an Org exporter backend that streamlines Emacs users' conversion from Org mode to Markdown, caring for both the body and the TOML frontmatter in a way that's compatible with [[https://www.getzola.org/][the static site generator Zola]].
 
-It started as a fork of the famous =ox-hugo= exporter, but it now is a
-different package that runs on top of =ox-hugo= itself. This way, you
-can receive =ox-hugo= updates without being restrained by the progress
-of this package. Even so, *I suggest pinning* =ox-hugo= to the most
-recent working version to avoid breaking changes after updates. Having a dedicated package with a different name is also helpful to let Zola users find this solution.
+It started as a fork of the famous =ox-hugo= exporter, but it now is a different package that runs on top of =ox-hugo= itself.
 
-Being this package built like a layer on top of =ox-hugo=, most of the
-stuff you can do with =ox-hugo= is possible with =ox-zola= too; so, I suggest reading the [[https://ox-hugo.scripter.co/][ox-hugo documentation]] to have a grasp of how the entire exporter works.
+This way, you can receive =ox-hugo= updates without being restrained by the progress of this package.
+Even so, *I suggest pinning* =ox-hugo= to the most recent working version to avoid breaking changes after updates.
+# Having a dedicated package with a different name is also helpful to let Zola users find this solution.
 
-Usually, people use a single static site generator, but if you have
-different websites that happen to be generated with Zola and Hugo,
-you're covered. =ox-zola= doesn't break =ox-hugo=!
+Being this package built like a layer on top of =ox-hugo=, most of the stuff you can do with =ox-hugo= is possible with =ox-zola= too; so, I suggest reading the [[https://ox-hugo.scripter.co/][ox-hugo documentation]] to have a grasp of how the entire exporter works.
+
+#+begin_quote
+Usually, people use a single static site generator, but if you have different websites that happen to be generated with Zola and Hugo, you're covered. =ox-zola= doesn't break =ox-hugo=!
+#+end_quote
+
+If something doesn't go the right way, remember that you can open an issue and we can work together for solving the problem. Enhancement requests are appreciated too.
 
 * Installation
-Since this package was born for my personal use and it's not perfect
-yet, I didn't make it available on Melpa. You can easily install it
-with =straight=, =use-package= or with =package!= macro, if you're on
-Doom Emacs, like me (see the example below).
+Since this package was born for my personal use and it's not perfect yet, I didn't make it available on Melpa.
+However, you can install it directly from this repository.
+
+Install with =straight=:
 
 #+begin_src emacs-lisp
-;; Ox-hugo is required
+(straight-use-package
+ '(ox-zola :host github :repo "gicrisf/ox-zola"
+   :files (:defaults "*.el" "backend" "stylesheets")
+   :includes ox-hugo))
+#+end_src
+
+Install with use-package:
+
+#+begin_src emacs-lisp
+(use-package ox-zola
+    :ensure t
+    :config
+    (require 'ox-hugo))
+#+end_src
+
+If you're on Doom Emacs like me, you can install with the =package!= macro:
+
+#+begin_src emacs-lisp
+;; Remember, org-hugo is required
 (package! ox-hugo)
-;; Ox-zola
 (package! ox-zola :recipe (:host github :repo "gicrisf/ox-zola"))
 #+end_src
 
-* Additional features
+* Features
 - [X] Custom frontmatters parameters for Zola
 - [X] Lastmod/updated tags for Zola
 - [X] Taxonomies for Zola
@@ -41,8 +57,7 @@ Doom Emacs, like me (see the example below).
 - [X] Avoid breaking ox-hugo functions while ox-zola is installed.
 
 * Donate
-Did you find this package useful?
-Why don't you help me keep awake by buying me a coffee?
+Did you find this package useful? Why don't you help me keep awake by buying me a coffee?
 
 [[https://ko-fi.com/V7V425BFU][https://ko-fi.com/img/githubbutton_sm.svg]]
 
