@@ -55,6 +55,7 @@ If you're on Doom Emacs like me, you can install with the =package!= macro:
 - [X] Zola shortcodes
 - [X] Exports with images
 - [X] Avoid breaking ox-hugo functions while ox-zola is installed.
+- [X] Differentiate front-matter items for Zola and Hugo in the same org drawer
 
 * Donate
 Did you find this package useful? Why don't you help me keep awake by buying me a coffee?

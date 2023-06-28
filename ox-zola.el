@@ -6,7 +6,7 @@
 ;; Maintainer: gicrisf <giovanni.crisalfi@protonmail.com>
 ;; Created: marzo 18, 2023
 ;; Modified: marzo 18, 2023
-;; Version: 0.0.4
+;; Version: 0.0.5
 ;; Keywords: Org, markdown, docs
 ;; Homepage: https://github.com/gicrisf/ox-zola
 ;; Package-Requires: ((emacs "27.2"))
@@ -283,10 +283,10 @@ INFO is a plist used as a communication channel."
       ;; https://stackoverflow.com/a/40815365/1219634
       (setf (alist-get 'tags data) tags)
       (setf (alist-get 'categories data) categories))
-      ;; (setq taxonomies `(;; The order of elements below will be respected
-      ;;                   (tags . tags)
-      ;;                   (categories . categories)))
-      ;; (setf (alist-get 'taxonomies data) taxonomies))
+    ;; (setq taxonomies `(;; The order of elements below will be respected
+    ;;                   (tags . tags)
+    ;;                   (categories . categories)))
+    ;; (setf (alist-get 'taxonomies data) taxonomies))
 
     (setq data (org-hugo--replace-keys-maybe data info))
     (setq ret (org-hugo--gen-front-matter data fm-format))
@@ -319,7 +319,10 @@ are \"toml\" and \"yaml\"."
       ;; (setq taxonomies '((alist-get 'tags data) (alist-get 'categories data)))
       ;; (message "taxonomies list %s" taxonomies)
       ;;
-      ;; DEBUG messages (temp)
+      ;; TODO remove buffer gen below
+      ;; (setq xbuff (generate-new-buffer "*ox-hugo alist*"))
+      ;; (print (format "Show data alist %s" data) xbuff)
+      ;;
       ;; (message "Show data alist %s" data)
       ;; (message "Tags are: %s" (alist-get 'tags data))
       ;; (message "Categories are: %s" (alist-get 'categories data))
@@ -339,6 +342,159 @@ are \"toml\" and \"yaml\"."
       ;; (message "Show data alist %s" data)
 
       (format "+++\n%s\n+++\n" (tomelr-encode data)))))
+
+(defun ox-zola--set-pseudohugo-backend ()
+  (org-export-define-derived-backend 'hugo 'blackfriday ; hugo < blackfriday < md < html
+    :menu-entry
+    '(?H "Export to Hugo-compatible Markdown"
+           ((?H "Subtree or File to Md file            "
+                (lambda (a _s v _b)
+                  (org-hugo-export-wim-to-md nil a v)))
+            (?h "File to Md file"
+                (lambda (a s v _b)
+                  (org-hugo-export-to-md a s v)))
+            (?O "Subtree or File to Md file and open   "
+                (lambda (a _s v _b)
+                  (if a
+                      (org-hugo-export-wim-to-md nil :async v)
+                    (org-open-file (org-hugo-export-wim-to-md nil nil v)))))
+            (?o "File to Md file and open"
+                (lambda (a s v _b)
+                  (if a
+                      (org-hugo-export-to-md :async s v)
+                    (org-open-file (org-hugo-export-to-md nil s v)))))
+            (?A "All subtrees (or File) to Md file(s)  "
+                (lambda (a _s v _b)
+                  (org-hugo-export-wim-to-md :all-subtrees a v)))
+            ;; TODO File to a temporary Md buffer (ox-zola-export-as-md)
+            (?t "File to a temporary Md buffer"
+                (lambda (a s v _b)
+                  (org-hugo-export-as-md a s v)))))
+    ;;;; translate-alist
+      :translate-alist '((code . org-hugo-kbd-tags-maybe)
+                         (drawer . org-hugo-drawer)
+                         (example-block . org-hugo-example-block)
+                         (export-block . org-hugo-export-block)
+                         (export-snippet . org-hugo-export-snippet)
+                         (headline . org-hugo-heading)
+                         (inner-template . org-hugo-inner-template)
+                         (inline-src-block . org-hugo-inline-src-block)
+                         (keyword . org-hugo-keyword)
+                         (link . org-hugo-link)
+                         (paragraph . org-hugo-paragraph)
+                         (src-block . org-hugo-src-block)
+                         (special-block . org-hugo-special-block))
+    :filters-alist '((:filter-body . org-hugo-body-filter))
+    ;;;; options-alist
+      ;;                KEY                       KEYWORD                    OPTION  DEFAULT                     BEHAVIOR
+    :options-alist '(;; Variables not setting the front-matter directly
+                       (:with-toc nil "toc" org-hugo-export-with-toc)
+                       (:section-numbers nil "num" org-hugo-export-with-section-numbers)
+                       (:author "AUTHOR" nil user-full-name newline)
+                       (:creator "CREATOR" nil org-hugo-export-creator-string)
+                       (:with-smart-quotes nil "'" nil) ;Hugo/Goldmark does more correct conversion to smart quotes, especially for single quotes.
+                       (:with-special-strings nil "-" nil) ;Hugo/Goldmark does the auto-conversion of "--" -> "–", "---" -> "—" and "..." -> "…"
+                       (:with-sub-superscript nil "^" '{}) ;Require curly braces to be wrapped around text to sub/super-scripted
+                       (:hugo-with-locale "ZOLA_WITH_LOCALE" nil nil)
+                       (:hugo-front-matter-format "ZOLA_FRONT_MATTER_FORMAT" nil     org-hugo-front-matter-format)
+                       (:hugo-level-offset "ZOLA_LEVEL_OFFSET" nil "1")
+                       (:hugo-preserve-filling "ZOLA_PRESERVE_FILLING" nil org-hugo-preserve-filling) ;Preserve breaks so that text filling in Markdown matches that of Org
+                       (:hugo-delete-trailing-ws "ZOLA_DELETE_TRAILING_WS" nil org-hugo-delete-trailing-ws)
+                       (:hugo-section "ZOLA_SECTION" nil org-hugo-section)
+                       (:hugo-bundle "ZOLA_BUNDLE" nil nil)
+                       (:hugo-base-dir "ZOLA_BASE_DIR" nil org-hugo-base-dir)
+                       (:hugo-goldmark "ZOLA_GOLDMARK" nil org-hugo-goldmark)
+                       (:hugo-code-fence "ZOLA_CODE_FENCE" nil t) ;Prefer to generate triple-backquoted Markdown code blocks by default.
+                       (:hugo-use-code-for-kbd "ZOLA_USE_CODE_FOR_KBD" nil org-hugo-use-code-for-kbd)
+                       (:hugo-prefer-hyphen-in-tags "ZOLA_PREFER_HYPHEN_IN_TAGS" nil org-hugo-prefer-hyphen-in-tags)
+                       (:hugo-allow-spaces-in-tags "ZOLA_ALLOW_SPACES_IN_TAGS" nil org-hugo-allow-spaces-in-tags)
+                       (:hugo-auto-set-lastmod "ZOLA_AUTO_SET_LASTMOD" nil org-hugo-auto-set-lastmod)
+                       (:hugo-custom-front-matter "ZOLA_CUSTOM_FRONT_MATTER" nil nil space)
+                       (:hugo-blackfriday "ZOLA_BLACKFRIDAY" nil nil space) ;Deprecated. See https://github.com/kaushalmodi/ox-hugo/discussions/485.
+                       (:hugo-front-matter-key-replace "ZOLA_FRONT_MATTER_KEY_REPLACE" nil nil space)
+                       (:hugo-date-format "ZOLA_DATE_FORMAT" nil org-hugo-date-format)
+                       (:hugo-paired-shortcodes "ZOLA_PAIRED_SHORTCODES" nil org-hugo-paired-shortcodes space)
+                       (:hugo-pandoc-citations "ZOLA_PANDOC_CITATIONS" nil nil)
+                       (:bibliography "BIBLIOGRAPHY" nil nil newline) ;Used in ox-hugo-pandoc-cite
+                       (:html-container "HTML_CONTAINER" nil org-hugo-container-element)
+                       (:html-container-class "HTML_CONTAINER_CLASS" nil "")
+    
+                       ;; Front-matter variables
+                       ;; https://gohugo.io/content-management/front-matter/#front-matter-variables
+                       ;; aliases
+                       (:hugo-aliases "ZOLA_ALIASES" nil nil space)
+                       ;; audio
+                       (:hugo-audio "ZOLA_AUDIO" nil nil)
+                       ;; date
+                       ;; "date" is parsed from the Org #+date or subtree property EXPORT_HUGO_DATE
+                       (:date "DATE" nil nil)
+                       ;; description
+                       (:description "DESCRIPTION" nil nil)
+                       ;; draft
+                       ;; "draft" value interpreted by the TODO state of a
+                       ;; post as Org subtree gets higher precedence.
+                       (:hugo-draft "ZOLA_DRAFT" nil nil)
+                       ;; expiryDate
+                       (:hugo-expirydate "ZOLA_EXPIRYDATE" nil nil)
+                       ;; headless (only for Page Bundles - Hugo v0.35+)
+                       (:hugo-headless "ZOLA_HEADLESS" nil nil)
+                       ;; images
+                       (:hugo-images "ZOLA_IMAGES" nil nil newline)
+                       ;; isCJKLanguage
+                       (:hugo-iscjklanguage "ZOLA_ISCJKLANGUAGE" nil nil)
+                       ;; keywords
+                       ;; "keywords" is parsed from the Org #+keywords or
+                       ;; subtree property EXPORT_KEYWORDS.
+                       (:keywords "KEYWORDS" nil nil newline)
+                       ;; layout
+                       (:hugo-layout "ZOLA_LAYOUT" nil nil)
+                       ;; lastmod
+                       (:hugo-lastmod "ZOLA_LASTMOD" nil nil)
+                       ;; linkTitle
+                       (:hugo-linktitle "ZOLA_LINKTITLE" nil nil)
+                       ;; locale (used in Hugo internal templates)
+                       (:hugo-locale "ZOLA_LOCALE" nil nil)
+                       ;; markup
+                       (:hugo-markup "ZOLA_MARKUP" nil nil) ;default is "md"
+                       ;; menu
+                       (:hugo-menu "ZOLA_MENU" nil nil space)
+                       (:hugo-menu-override "ZOLA_MENU_OVERRIDE" nil nil space)
+                       ;; outputs
+                       (:hugo-outputs "ZOLA_OUTPUTS" nil nil space)
+                       ;; publishDate
+                       (:hugo-publishdate "ZOLA_PUBLISHDATE" nil nil)
+                       ;; series
+                       (:hugo-series "ZOLA_SERIES" nil nil newline)
+                       ;; slug
+                       (:hugo-slug "ZOLA_SLUG" nil nil)
+                       ;; taxomonomies - tags, categories
+                       (:hugo-tags "ZOLA_TAGS" nil nil newline)
+                       ;; #+hugo_tags are used to set the post tags in Org
+                       ;; files written for file-based exports.  But for
+                       ;; subtree-based exports, the EXPORT_HUGO_TAGS
+                       ;; property can be used to override inherited tags
+                       ;; and Org-style tags.
+                       (:hugo-categories "ZOLA_CATEGORIES" nil nil newline)
+                       ;; #+hugo_categories are used to set the post
+                       ;; categories in Org files written for file-based
+                       ;; exports.  But for subtree-based exports, the
+                       ;; EXPORT_HUGO_CATEGORIES property can be used to
+                       ;; override inherited categories and Org-style
+                       ;; categories (Org-style tags with "@" prefix).
+                       ;; resources
+                       (:hugo-resources "ZOLA_RESOURCES" nil nil space)
+                       ;; title
+                       ;; "title" is parsed from the Org #+title or the subtree heading.
+                       ;; type
+                       (:hugo-type "ZOLA_TYPE" nil nil)
+                       ;; url
+                       (:hugo-url "ZOLA_URL" nil nil)
+                       ;; videos
+                       (:hugo-videos "ZOLA_VIDEOS" nil nil newline)
+                       ;; weight
+                       (:hugo-weight "ZOLA_WEIGHT" nil nil space))
+    )
+  )
 
 (defun ox-zola-special-block (special-block contents info)
   (let*
@@ -451,10 +607,10 @@ and rewrite link paths to make blogging more seamless."
                link-is-url)
       (setq raw-path (org-blackfriday--url-sanitize-maybe
                       info (url-encode-url raw-path))))
-    (message "[org-hugo-link DBG] raw-link: %s" raw-link)
-    (message "[org-hugo-link DBG] raw-path 2: %s" raw-path)
-    (message "[org-hugo-link DBG] link: %S" link)
-    (message "[org-hugo-link DBG] link type: %s" type)
+    ;; (message "[org-hugo-link DBG] raw-link: %s" raw-link)
+    ;; (message "[org-hugo-link DBG] raw-path 2: %s" raw-path)
+    ;; (message "[org-hugo-link DBG] link: %S" link)
+    ;; (message "[org-hugo-link DBG] link type: %s" type)
     (cond
      ;; Link type is handled by a special function.
      ((org-export-custom-protocol-maybe link desc 'md))
@@ -463,10 +619,10 @@ and rewrite link paths to make blogging more seamless."
       (let ((destination (if (string= type "fuzzy")
                              (org-export-resolve-fuzzy-link link info)
                            (org-export-resolve-id-link link info))))
-        (message "[org-hugo-link DBG] link type: %s" type)
-        (message "[org-hugo-link DBG] destination: %s" destination)
-        (message "[org-hugo-link DBG] link: %S" link)
-        (message "[org-hugo-link DBG] link destination elem type: %S" (org-element-type destination))
+        ;; (message "[org-hugo-link DBG] link type: %s" type)
+        ;; (message "[org-hugo-link DBG] destination: %s" destination)
+        ;; (message "[org-hugo-link DBG] link: %S" link)
+        ;; (message "[org-hugo-link DBG] link destination elem type: %S" (org-element-type destination))
         (pcase (org-element-type destination)
           ;; External file.
           (`plain-text
@@ -545,9 +701,9 @@ and rewrite link paths to make blogging more seamless."
              (inlined-svg (and (stringp extension)
                                (string= "svg" (downcase extension))
                                (plist-get attr :inlined))))
-        (message "[org-hugo-link DBG] Inline image: %s, extension: %s" raw-path extension)
-        (message "[org-hugo-link DBG] inlined svg? %S" inlined-svg)
-        (message "[org-hugo-link DBG] caption: %s" caption)
+        ;; (message "[org-hugo-link DBG] Inline image: %s, extension: %s" raw-path extension)
+        ;; (message "[org-hugo-link DBG] inlined svg? %S" inlined-svg)
+        ;; (message "[org-hugo-link DBG] caption: %s" caption)
         ;;
         (if inlined-svg
             (let* ((svg-contents (with-temp-buffer
@@ -569,8 +725,8 @@ and rewrite link paths to make blogging more seamless."
                                  (format "<figure>\n%s\n<figcaption>\n\n  %s\n</figcaption>\n</figure>"
                                          svg-contents-sanitized caption)
                                svg-contents-sanitized)))
-              (message "[org-hugo-link DBG] svg contents: %s" svg-contents)
-              (message "[org-hugo-link DBG] svg contents sanitized: %s" svg-contents-sanitized)
+              ;; (message "[org-hugo-link DBG] svg contents: %s" svg-contents)
+              ;; (message "[org-hugo-link DBG] svg contents sanitized: %s" svg-contents-sanitized)
               svg-html)
           (let* ((path (org-hugo--attachment-rewrite-maybe raw-path info))
                  (inline-image (not (org-html-standalone-image-p useful-parent info)))
@@ -579,13 +735,13 @@ and rewrite link paths to make blogging more seamless."
                            path))
                  (num-attr (/ (length attr) 2)) ;(:alt foo) -> num-attr = 1
                  (alt-text (plist-get attr :alt)))
-            (message "[org-hugo-link DBG] path: %s" path)
-            (message "[org-hugo-link DBG] inline image? %s" inline-image)
-            (message "[org-hugo-link DBG] attr: %s num of attr: %d"
-                      attr (length attr))
-            (message "[org-hugo-link DBG] parent-type: %s" parent-type)
-            (message "[org-hugo-link DBG] useful-parent-type: %s"
-                      (org-element-type useful-parent))
+            ;; (message "[org-hugo-link DBG] path: %s" path)
+            ;; (message "[org-hugo-link DBG] inline image? %s" inline-image)
+            ;; (message "[org-hugo-link DBG] attr: %s num of attr: %d"
+            ;;           attr (length attr))
+            ;; (message "[org-hugo-link DBG] parent-type: %s" parent-type)
+            ;; (message "[org-hugo-link DBG] useful-parent-type: %s"
+            ;;           (org-element-type useful-parent))
             (cond
              (;; Use the Markdown image syntax if the image is inline and
               ;; there are no HTML attributes for the image, or just one
@@ -637,7 +793,7 @@ and rewrite link paths to make blogging more seamless."
                       (setq figure-param-str (concat figure-param-str
                                                      (format "%s=\"%s\" "
                                                              name val))))))
-                (message "[org-hugo-link DBG] figure params: %s" figure-param-str)
+                ;; (message "[org-hugo-link DBG] figure params: %s" figure-param-str)
                 ;; EDITED FROM OX-HUGO
                 (format "{{ figure(%s) }}" (org-trim figure-param-str)))))))
         ))
@@ -692,7 +848,7 @@ and rewrite link paths to make blogging more seamless."
                                   (setq link-param-str (concat link-param-str
                                                                (format "%s=\"%s\" "
                                                                        name val))))))
-                            (message "[org-hugo-link DBG] link params: %s" link-param-str)
+                            ;; (message "[org-hugo-link DBG] link params: %s" link-param-str)
                             )
                           (concat type ":" raw-path))
                          (;; Remove the "file://" prefix.
@@ -728,8 +884,8 @@ and rewrite link paths to make blogging more seamless."
                                     (message "[org-hugo-link DBG] link-search-str: %s" link-search-str)
                                     (when link-search-str
                                       (setq anchor (org-hugo--search-and-get-anchor raw-path link-search-str info)))))
-                                (message "[org-hugo-link file.org::*Heading DBG] ref    = %s" ref)
-                                (message "[org-hugo-link file.org::*Heading DBG] anchor = %s" anchor)
+                                ;; (message "[org-hugo-link file.org::*Heading DBG] ref    = %s" ref)
+                                ;; (message "[org-hugo-link file.org::*Heading DBG] anchor = %s" anchor)
                                 (cond
                                  ;; Link to a post subtree.  In this case,
                                  ;; the "anchor" is actually the post's
@@ -746,8 +902,8 @@ and rewrite link paths to make blogging more seamless."
                          (t
                           raw-path)))
                   (link-param-str (org-string-nw-p (org-trim link-param-str))))
-             (message "[org-hugo-link DBG] desc=%s path=%s" desc path)
-             (message "[org-hugo-link DBG] link-param-str=%s" link-param-str)
+             ;; (message "[org-hugo-link DBG] desc=%s path=%s" desc path)
+             ;; (message "[org-hugo-link DBG] link-param-str=%s" link-param-str)
              (cond
               ;; Link description is a `figure' shortcode but does not
               ;; already have the `link' parameter set.
@@ -795,26 +951,29 @@ and rewrite link paths to make blogging more seamless."
                ""))))
      )))
 
-(defun ox-zola--sandwich-advice (fun)
-  "Return FUN by temporarily advising other fundamental functions."
-  (lambda () (progn
-               (advice-add 'org-hugo--get-front-matter :override #'ox-zola--get-front-matter)
-               (advice-add 'org-hugo--gen-front-matter :override #'ox-zola--gen-front-matter)
-               (advice-add 'org-hugo-link :override #'ox-zola-link)
-               (funcall fun)
-               (advice-remove 'org-hugo--get-front-matter #'ox-zola--get-front-matter)
-               (advice-remove 'org-hugo--gen-front-matter #'ox-zola--gen-front-matter)
-               (advice-remove 'org-hugo-link #'ox-zola-link))))
+(defun ox-zola--sandwiching (fun)
+  "Execute Org-hugo FUN inside an environment tailed for Zola."
+  (let ((original-hugo-backend (org-export-get-backend 'hugo)))
+    (progn
+      (ox-zola--set-pseudohugo-backend)
+      (advice-add 'org-hugo--get-front-matter :override #'ox-zola--get-front-matter)
+      (advice-add 'org-hugo--gen-front-matter :override #'ox-zola--gen-front-matter)
+      (advice-add 'org-hugo-link :override #'ox-zola-link)
+      (funcall fun)
+      (org-export-register-backend original-hugo-backend)
+      (advice-remove 'org-hugo--get-front-matter #'ox-zola--get-front-matter)
+      (advice-remove 'org-hugo--gen-front-matter #'ox-zola--gen-front-matter)
+      (advice-remove 'org-hugo-link #'ox-zola-link))))
 
 (defun ox-zola-export-wim-to-md ()
   "Export the current subtree/all subtrees/current file to a Zola post."
   (interactive)
-  (funcall (ox-zola--sandwich-advice #'org-hugo-export-wim-to-md)))
+  (ox-zola--sandwiching #'org-hugo-export-wim-to-md))
 
 (defun ox-zola-export-to-md ()
   "Export current buffer to a Zola-compatible Markdown file."
   (interactive)
-  (funcall (ox-zola--sandwich-advice #'org-hugo-export-to-md)))
+  (ox-zola--sandwiching #'org-hugo-export-to-md))
 
 (provide 'ox-zola)
 ;;; ox-zola.el ends here
