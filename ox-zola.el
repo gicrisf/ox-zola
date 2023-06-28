@@ -6,7 +6,7 @@
 ;; Maintainer: gicrisf <giovanni.crisalfi@protonmail.com>
 ;; Created: marzo 18, 2023
 ;; Modified: marzo 18, 2023
-;; Version: 0.0.5
+;; Version: 0.0.6
 ;; Keywords: Org, markdown, docs
 ;; Homepage: https://github.com/gicrisf/ox-zola
 ;; Package-Requires: ((emacs "27.2"))
@@ -344,6 +344,7 @@ are \"toml\" and \"yaml\"."
       (format "+++\n%s\n+++\n" (tomelr-encode data)))))
 
 (defun ox-zola--set-pseudohugo-backend ()
+  "Define a fake Hugo backend to support Zola metadata."
   (org-export-define-derived-backend 'hugo 'blackfriday ; hugo < blackfriday < md < html
     :menu-entry
     '(?H "Export to Hugo-compatible Markdown"
@@ -959,7 +960,11 @@ and rewrite link paths to make blogging more seamless."
       (advice-add 'org-hugo--get-front-matter :override #'ox-zola--get-front-matter)
       (advice-add 'org-hugo--gen-front-matter :override #'ox-zola--gen-front-matter)
       (advice-add 'org-hugo-link :override #'ox-zola-link)
-      (funcall fun)
+      (condition-case err
+          (funcall fun)
+        (error
+         (message "%s" (replace-regexp-in-string "hugo" "zola"
+                                                 (error-message-string err)))))
       (org-export-register-backend original-hugo-backend)
       (advice-remove 'org-hugo--get-front-matter #'ox-zola--get-front-matter)
       (advice-remove 'org-hugo--gen-front-matter #'ox-zola--gen-front-matter)
