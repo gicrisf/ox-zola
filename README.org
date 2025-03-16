@@ -35,9 +35,10 @@ Install with use-package:
 
 #+begin_src emacs-lisp
 (use-package ox-zola
-    :ensure t
-    :config
-    (require 'ox-hugo))
+  :ensure t
+  :after ox
+  :config
+  (require 'ox-hugo))
 #+end_src
 
 If you're on Doom Emacs like me, you can install with the =package!= macro:
@@ -47,6 +48,53 @@ If you're on Doom Emacs like me, you can install with the =package!= macro:
 (package! ox-hugo)
 (package! ox-zola :recipe (:host github :repo "gicrisf/ox-zola"))
 #+end_src
+* Quick start
+You have two options for getting started:
+1. Configure your metadata inside the Org file.
+2. Configure your defaults in your Emacs configuration.
+
+I usually prefer the second approach, but the first one is simpler, so we’ll start with that.
+
+When you create a new Org file and want to export its content using =ox-zola=, add the following metadata at the top:
+
+#+begin_src org
+#+hugo_base_dir: /path/to/your/zola/project
+#+hugo_section: posts
+#+end_src
+
+This allows you to target multiple blogs from different Org files. Now, let’s focus on the most important part: writing the content.
+
+Use Org-mode headings to structure your posts. For example:
+
+#+begin_src org
+,* My First Post
+:PROPERTIES:
+:EXPORT_FILE_NAME: my-first-post
+:END:
+This is my first post written in Org-mode!
+#+end_src
+
+Place your cursor on the heading and run =M-x org-hugo-export-to-md=. This will generate a Markdown file in your Zola =content/posts/= directory.
+
+To build and serve your Zola site, navigate to your site’s root directory and run the command =zola serve=.
+
+If you want to add taxonomies, use Org-mode’s standard system:
+
+#+begin_src org
+,* My First Post :@blogging:emacs:
+#+end_src
+
+This creates a category called =blogging= and a tag =emacs=. You can also override the target section and file name for a specific heading like this:
+
+#+begin_src org
+,* My First Post :@blogging:emacs:
+:PROPERTIES:
+:EXPORT_HUGO_SECTION: posts/emacs-my-first-post
+:EXPORT_FILE_NAME: index
+:END:
+#+end_src
+
+Why would you want to do that? I use this approach to create a subdirectory containing my `index.md` file, allowing me to store related assets, such as images, in the same directory.
 
 * Features
 - [X] Custom frontmatters parameters for Zola
