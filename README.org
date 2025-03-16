@@ -58,8 +58,8 @@ I usually prefer the second approach, but the first one is simpler, so we’ll s
 When you create a new Org file and want to export its content using =ox-zola=, add the following metadata at the top:
 
 #+begin_src org
-#+hugo_base_dir: /path/to/your/zola/project
-#+hugo_section: posts
+#+zola_base_dir: /path/to/your/zola/project
+#+zola_section: posts
 #+end_src
 
 This allows you to target multiple blogs from different Org files. Now, let’s focus on the most important part: writing the content.
@@ -95,6 +95,35 @@ This creates a category called =blogging= and a tag =emacs=. You can also overri
 #+end_src
 
 Why would you want to do that? I use this approach to create a subdirectory containing my `index.md` file, allowing me to store related assets, such as images, in the same directory.
+
+* Zola taxonomies
+You can also set taxonomies at the top of the file like this:
+
+#+begin_src org
+#+zola_categories: blogging
+#+zola_tags: whatever you want
+#+end_src
+
+When you use =zola_categories= and =zola_tags=, running
+=ox-zola-export-to-md= or =ox-zola-export-wim-to-md=, the command will trigger dedicated taxonomy management. Instead of exporting the taxonomies at the root of the TOML:
+
+#+begin_src toml
+title = "Title"
+author = ["You"]
+categories = ["blogging"]
+tags = ["whatever", "you", "want"]
+#+end_src
+
+it will reproduce the Zola hierarchy:
+
+#+begin_src toml
+title = "Title"
+author = ["You"]
+
+[taxonomies]
+    categories = ["blogging"]
+    tags = ["whatever", "you", "want"]
+#+end_src
 
 * Features
 - [X] Custom frontmatters parameters for Zola
