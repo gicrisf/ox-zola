@@ -74,7 +74,7 @@ Use Org-mode headings to structure your posts. For example:
 This is my first post written in Org-mode!
 #+end_src
 
-Place your cursor on the heading and run =M-x org-hugo-export-to-md=. This will generate a Markdown file in your Zola =content/posts/= directory.
+Place your cursor on the heading and run =M-x ox-zola-export-wim-to-md=. This will generate a Markdown file in your Zola =content/posts/= directory.
 
 To build and serve your Zola site, navigate to your site’s root directory and run the command =zola serve=.
 
