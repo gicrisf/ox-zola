@@ -44,9 +44,13 @@ Install with use-package:
 If you're on Doom Emacs like me, you can install with the =package!= macro:
 
 #+begin_src emacs-lisp
+;; packages.el
 ;; Remember, org-hugo is required
 (package! ox-hugo)
 (package! ox-zola :recipe (:host github :repo "gicrisf/ox-zola"))
+
+;; config.el
+(require 'ox-zola)
 #+end_src
 * Quick start
 You have two options for getting started:
