@@ -34,11 +34,12 @@ Install with =straight=:
 Install with use-package:
 
 #+begin_src emacs-lisp
+(use-package ox-hugo)
 (use-package ox-zola
-  :ensure t
-  :after ox
-  :config
-  (require 'ox-hugo))
+  :vc (:url "https://github.com/gicrisf/ox-zola"
+            :rev :newest
+            :branch "main")
+  :after ox)
 #+end_src
 
 If you're on Doom Emacs like me, you can install with the =package!= macro:
