@@ -213,7 +213,6 @@ INFO is a plist used as a communication channel."
                  (headless . ,headless)
                  (creator . ,creator)
                  (locale . ,locale)
-                 (taxonomies . '())
                  (blackfriday . ,blackfriday)))
          (data `,(append weight-data custom-fm-data data
                          (list
@@ -305,10 +304,8 @@ INFO is a plist used as a communication channel."
 
 (defun ox-zola--gen-front-matter (data format)
   "Generate the Zola post front-matter, and return that string.
-
 DATA is an alist of the form \((KEY1 . VAL1) (KEY2 . VAL2) .. \),
 where KEY is a symbol and VAL is a string.
-
 Generate the front-matter in the specified FORMAT.  Valid values
 are \"toml\" and \"yaml\"."
   (if (string= format "yaml")
@@ -326,21 +323,26 @@ are \"toml\" and \"yaml\"."
       ;; (message "Show data alist %s" data)
       ;; (message "Tags are: %s" (alist-get 'tags data))
       ;; (message "Categories are: %s" (alist-get 'categories data))
-
+      
       ;; Build taxonomies alist
       ;; TODO delete tags and categories field in place with `delete`
       ;; TODO Move this function up
-      (setq taxonomies `(;; The order of elements below will be respected
-                         (tags . ,(alist-get 'tags data))
-                         (categories . ,(alist-get 'categories data))))
-
-      ;; (message "Taxonomies will be: %s" taxonomies)
-
-      ;; Replace taxonomies in data with actual taxonomies
-      (setf (alist-get 'taxonomies data) taxonomies)
-      ;; (setq data (append data taxonomies))
-      ;; (message "Show data alist %s" data)
-
+      ;; Save tags and categories before removing them from top level
+      (let ((tags (alist-get 'tags data))
+            (categories (alist-get 'categories data)))
+        ;; Remove tags, categories and any existing taxonomies from top level
+        (setq data (assq-delete-all 'taxonomies data))
+        (setq data (assq-delete-all 'tags data))
+        (setq data (assq-delete-all 'categories data))
+        ;; (message "Taxonomies will be: %s" taxonomies)
+        ;; Replace taxonomies in data with actual taxonomies, appended at end
+        ;; to avoid TOML table consuming subsequent scalar fields
+        ;; (setq data (append data taxonomies))
+        ;; (message "Show data alist %s" data)
+        (when (or tags categories)
+          (setq data (append data
+                             `((taxonomies . ((tags . ,tags)
+                                              (categories . ,categories))))))))
       (format "+++\n%s\n+++\n" (tomelr-encode data)))))
 
 (defun ox-zola--set-pseudohugo-backend ()
