@@ -953,18 +953,19 @@ and rewrite link paths to make blogging more seamless."
      )))
 
 (defun ox-zola--sandwiching (fun)
-  "Execute Org-hugo FUN inside an environment tailed for Zola."
+  "Execute Org-hugo FUN inside an environment tailored for Zola.
+
+This function temporarily overrides ox-hugo's export functions with
+Zola-compatible versions using Emacs's advice system.  The original
+backend and functions are always restored after FUN completes, even
+if an error occurs (via `unwind-protect')."
   (let ((original-hugo-backend (org-export-get-backend 'hugo)))
-    (progn
-      (ox-zola--set-pseudohugo-backend)
-      (advice-add 'org-hugo--get-front-matter :override #'ox-zola--get-front-matter)
-      (advice-add 'org-hugo--gen-front-matter :override #'ox-zola--gen-front-matter)
-      (advice-add 'org-hugo-link :override #'ox-zola-link)
-      (condition-case err
-          (funcall fun)
-        (error
-         (message "%s" (replace-regexp-in-string "hugo" "zola"
-                                                 (error-message-string err)))))
+    (ox-zola--set-pseudohugo-backend)
+    (advice-add 'org-hugo--get-front-matter :override #'ox-zola--get-front-matter)
+    (advice-add 'org-hugo--gen-front-matter :override #'ox-zola--gen-front-matter)
+    (advice-add 'org-hugo-link :override #'ox-zola-link)
+    (unwind-protect
+        (funcall fun)
       (org-export-register-backend original-hugo-backend)
       (advice-remove 'org-hugo--get-front-matter #'ox-zola--get-front-matter)
       (advice-remove 'org-hugo--gen-front-matter #'ox-zola--gen-front-matter)
