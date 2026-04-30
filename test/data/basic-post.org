@@ -1,0 +1,6 @@
+#+zola_base_dir: /tmp/ox-zola-test
+#+zola_section: posts
+#+title: My First Post
+#+date: 2024-01-15
+
+This is the content of my first post.

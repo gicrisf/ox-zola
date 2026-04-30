@@ -1,0 +1,5 @@
+#+hugo_base_dir: /tmp/hugo-site
+#+hugo_section: docs
+#+title: Hugo Keywords Post
+
+Post using HUGO_ keywords with lite backend.
