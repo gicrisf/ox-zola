@@ -1,0 +1,3 @@
+#+title: Defaults Post
+
+This post has no ZOLA_ keywords.

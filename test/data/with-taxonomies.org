@@ -1,0 +1,7 @@
+#+zola_base_dir: /tmp/ox-zola-test
+#+zola_section: blog
+#+zola_tags: emacs org-mode
+#+zola_categories: tutorials
+#+title: Taxonomies Post
+
+Content with taxonomies.
