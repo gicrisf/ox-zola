@@ -468,8 +468,12 @@ are \"toml\" and \"yaml\"."
                        (:keywords "KEYWORDS" nil nil newline)
                        ;; layout
                        (:hugo-layout "ZOLA_LAYOUT" nil nil)
+                       (:hugo-layout "ZOLA_TEMPLATE" nil nil)
+                       (:hugo-layout "HUGO_TEMPLATE" nil nil)
                        ;; lastmod
                        (:hugo-lastmod "ZOLA_LASTMOD" nil nil)
+                       (:hugo-lastmod "ZOLA_UPDATED" nil nil)
+                       (:hugo-lastmod "HUGO_UPDATED" nil nil)
                        ;; linkTitle
                        (:hugo-linktitle "ZOLA_LINKTITLE" nil nil)
                        ;; locale (used in Hugo internal templates)

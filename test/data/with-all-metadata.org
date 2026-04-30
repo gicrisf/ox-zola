@@ -1,13 +1,13 @@
 #+zola_base_dir: /tmp/ox-zola-test
 #+zola_section: articles
-#+zola_title: Overridden Title
+#+title: All Metadata Post
 #+zola_slug: my-custom-slug
-#+zola_date: 2024-06-01
+#+date: 2024-06-01
 #+zola_updated: 2024-06-15
 #+zola_draft: true
 #+zola_weight: 10
 #+zola_template: page.html
-#+zola_description: A test description
+#+description: A test description
 #+zola_tags: test
 #+zola_categories: dev
 

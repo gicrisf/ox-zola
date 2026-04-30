@@ -54,19 +54,15 @@
 (ert-deftest ox-zola-lite-test-build-frontmatter-basic ()
   "Test basic frontmatter generation in ox-zola-lite."
   (let ((info '(:title ("Test Title")
-                :zola-title nil
                 :author ("Test Author")
-                :date nil
-                :zola-date "2024-01-15"
+                :date "2024-01-15"
                 :zola-updated nil
                 :zola-slug nil
                 :zola-draft nil
                 :zola-weight nil
                 :zola-template nil
-                :zola-description nil
                 :zola-tags nil
-                :zola-categories nil
-                :zola-extra nil)))
+                :zola-categories nil)))
     ;; Mock org-export-data to return the string directly
     (cl-letf (((symbol-function 'org-export-data)
                (lambda (data _info) (if (listp data) (car data) data))))
@@ -79,19 +75,15 @@
 (ert-deftest ox-zola-lite-test-build-frontmatter-taxonomies ()
   "Test that ox-zola-lite generates taxonomies section."
   (let ((info '(:title ("Test")
-                :zola-title nil
                 :author nil
                 :date nil
-                :zola-date nil
                 :zola-updated nil
                 :zola-slug nil
                 :zola-draft nil
                 :zola-weight nil
                 :zola-template nil
-                :zola-description nil
                 :zola-tags ("emacs" "org-mode")
-                :zola-categories ("tutorials")
-                :zola-extra nil)))
+                :zola-categories ("tutorials"))))
     (cl-letf (((symbol-function 'org-export-data)
                (lambda (data _info) (if (listp data) (car data) data))))
       (let ((result (ox-zola-lite--build-frontmatter info)))
@@ -133,9 +125,16 @@
   "Test that HUGO_* aliases are recognized (for compatibility)."
   (let ((backend (org-export-get-backend 'zola-lite)))
     (let ((options (org-export-backend-options backend)))
-      ;; HUGO_* keywords should map to the same plist keys
+      ;; HUGO_* keywords should map to zola plist keys
       (should (assq :zola-base-dir options))
-      (should (assq :zola-section options)))))
+      (should (assq :zola-section options))
+      (should (assq :zola-slug options))
+      (should (assq :zola-updated options))
+      (should (assq :zola-draft options))
+      (should (assq :zola-weight options))
+      (should (assq :zola-tags options))
+      (should (assq :zola-categories options))
+      (should (assq :zola-template options)))))
 
 ;;; ox-zola-full tests (conditional on ox-hugo availability)
 
@@ -183,6 +182,21 @@
     (insert-file-contents (expand-file-name filename ox-zola-test-data-dir))
     (buffer-string)))
 
+(defun ox-zola-test--export-fixture (fixture backend-fn)
+  "Export FIXTURE.org Org fixture file using BACKEND-FN.
+Return the exported Markdown string, cleaning up the export buffer.
+BACKEND-FN is either `ox-zola-lite-export-as-md' or `ox-zola-full-export-as-md'."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert (ox-zola-test--read-fixture fixture))
+      (org-mode)
+      (let ((export-buf (funcall backend-fn)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (buffer-string))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
 ;;; Keyword recognition tests (lite backend)
 
 (ert-deftest ox-zola-lite-test-reads-zola-base-dir ()
@@ -223,14 +237,11 @@
                     (org-export-get-environment 'zola-lite))))
         (should (equal (plist-get info :zola-base-dir) "/tmp/ox-zola-test"))
         (should (equal (plist-get info :zola-section) "articles"))
-        (should (equal (plist-get info :zola-title) "Overridden Title"))
         (should (equal (plist-get info :zola-slug) "my-custom-slug"))
-        (should (equal (plist-get info :zola-date) "2024-06-01"))
         (should (equal (plist-get info :zola-updated) "2024-06-15"))
         (should (equal (plist-get info :zola-draft) "true"))
         (should (equal (plist-get info :zola-weight) "10"))
         (should (equal (plist-get info :zola-template) "page.html"))
-        (should (equal (plist-get info :zola-description) "A test description"))
         (should (equal (plist-get info :zola-tags) '("test")))
         (should (equal (plist-get info :zola-categories) '("dev")))))))
 
@@ -343,7 +354,7 @@
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
-                (should (string-match-p "title = \"Overridden Title\"" content))
+                (should (string-match-p "title = \"All Metadata Post\"" content))
                 (should (string-match-p "date = 2024-06-01" content))
                 (should (string-match-p "updated = 2024-06-15" content))
                 (should (string-match-p "slug = \"my-custom-slug\"" content))
@@ -499,6 +510,111 @@
                   (should (string-match-p "title = \"My First Post\"" content))))
             (when (buffer-live-p export-buf)
               (kill-buffer export-buf))))))))
+
+  ;;; Subset compatibility tests (lite ↔ full backend)
+  ;; These tests verify that the lite backend's output is a semantic
+  ;; subset of the full backend's output — any fixture that works with
+  ;; lite should produce compatible frontmatter with the full backend.
+
+  (ert-deftest ox-zola-test-subset-frontmatter-structure ()
+    "Both backends produce TOML frontmatter with +++ delimiters."
+    (let ((lite-str (ox-zola-test--export-fixture "basic-post.org"
+                                                   #'ox-zola-lite-export-as-md))
+          (full-str (ox-zola-test--export-fixture "basic-post.org"
+                                                   #'ox-zola-full-export-as-md)))
+      ;; Both use +++ delimiters
+      (should (string-prefix-p "+++" lite-str))
+      (should (string-prefix-p "+++" full-str))
+      (should (string-match-p "\n\\+\\+\\+\n" lite-str))
+      (should (string-match-p "\n\\+\\+\\+\n" full-str))))
+
+  (ert-deftest ox-zola-test-subset-title ()
+    "Both backends produce the same title from basic-post.org."
+    (let ((lite-str (ox-zola-test--export-fixture "basic-post.org"
+                                                   #'ox-zola-lite-export-as-md))
+          (full-str (ox-zola-test--export-fixture "basic-post.org"
+                                                   #'ox-zola-full-export-as-md)))
+      (should (string-match-p "title = \"My First Post\"" lite-str))
+      (should (string-match-p "title = \"My First Post\"" full-str))))
+
+  (ert-deftest ox-zola-test-subset-body ()
+    "Both backends include the Org body content from basic-post.org."
+    (let ((lite-str (ox-zola-test--export-fixture "basic-post.org"
+                                                   #'ox-zola-lite-export-as-md))
+          (full-str (ox-zola-test--export-fixture "basic-post.org"
+                                                   #'ox-zola-full-export-as-md)))
+      (should (string-match-p "This is the content of my first post" lite-str))
+      (should (string-match-p "This is the content of my first post" full-str))))
+
+  (ert-deftest ox-zola-test-subset-taxonomies ()
+    "Both backends produce [taxonomies] section with tags/categories."
+    (let ((lite-str (ox-zola-test--export-fixture "with-taxonomies.org"
+                                                   #'ox-zola-lite-export-as-md))
+          (full-str (ox-zola-test--export-fixture "with-taxonomies.org"
+                                                   #'ox-zola-full-export-as-md)))
+      ;; Both have [taxonomies] section
+      (should (string-match-p "\\[taxonomies\\]" lite-str))
+      (should (string-match-p "\\[taxonomies\\]" full-str))
+      ;; Both have tags and categories
+      (should (string-match-p "emacs" lite-str))
+      (should (string-match-p "org-mode" lite-str))
+      (should (string-match-p "tutorials" lite-str))
+      (should (string-match-p "emacs" full-str))
+      (should (string-match-p "org-mode" full-str))
+      (should (string-match-p "tutorials" full-str))))
+
+  (ert-deftest ox-zola-test-subset-no-keywords ()
+    "Both backends use #+title fallback, neither adds slug/draft fields."
+    (let ((lite-str (ox-zola-test--export-fixture "no-keywords.org"
+                                                   #'ox-zola-lite-export-as-md))
+          (full-str (ox-zola-test--export-fixture "no-keywords.org"
+                                                   #'ox-zola-full-export-as-md)))
+      ;; Both have the title
+      (should (string-match-p "Defaults Post" lite-str))
+      (should (string-match-p "Defaults Post" full-str))
+      ;; Neither has a slug field (no ZOLA_SLUG in file)
+      (should-not (string-match-p "^slug =" lite-str))
+      (should-not (string-match-p "^slug =" full-str))
+      ;; Body text present in both
+      (should (string-match-p "This post has no ZOLA" lite-str))
+      (should (string-match-p "This post has no ZOLA" full-str))))
+
+  (ert-deftest ox-zola-test-subset-all-metadata-common ()
+    "Both backends recognize ZOLA_* and standard Org keywords.
+Verifies slug, draft, weight, tags, categories, updated,
+and page template — the full set of metadata keywords
+shared between lite and full backends."
+    (let ((lite-str (ox-zola-test--export-fixture "with-all-metadata.org"
+                                                   #'ox-zola-lite-export-as-md))
+          (full-str (ox-zola-test--export-fixture "with-all-metadata.org"
+                                                   #'ox-zola-full-export-as-md)))
+      ;; Title via #+title (Org standard, both backends)
+      (should (string-match-p "All Metadata Post" lite-str))
+      (should (string-match-p "All Metadata Post" full-str))
+      ;; Slug recognized by both
+      (should (string-match-p "slug = \"my-custom-slug\"" lite-str))
+      (should (string-match-p "my-custom-slug" full-str))
+      ;; Draft recognized by both
+      (should (string-match-p "draft = true" lite-str))
+      (should (string-match-p "draft" full-str))
+      ;; Weight recognized by both
+      (should (string-match-p "weight = 10" lite-str))
+      (should (string-match-p "weight" full-str))
+      ;; Updated recognized by both (ZOLA_UPDATED => HUGO_LASTMOD)
+      (should (string-match-p "2024-06-15" lite-str))
+      (should (string-match-p "2024-06-15" full-str))
+      ;; Template recognized by both (ZOLA_TEMPLATE => HUGO_LAYOUT)
+      (should (string-match-p "page.html" lite-str))
+      (should (string-match-p "page.html" full-str))
+      ;; Tags recognized by both
+      (should (string-match-p "test" lite-str))
+      (should (string-match-p "test" full-str))
+      ;; Categories recognized by both
+      (should (string-match-p "dev" lite-str))
+      (should (string-match-p "dev" full-str))
+      ;; Both have [taxonomies] section
+      (should (string-match-p "\\[taxonomies\\]" lite-str))
+      (should (string-match-p "taxonomies" full-str))))
 
 (provide 'ox-zola-test)
 ;;; ox-zola-test.el ends here

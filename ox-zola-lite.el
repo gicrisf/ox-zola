@@ -46,20 +46,23 @@
     (:zola-base-dir "HUGO_BASE_DIR" nil nil t)
     (:zola-section "ZOLA_SECTION" nil ox-zola-section t)
     (:zola-section "HUGO_SECTION" nil nil t)
-    ;; Basic metadata
-    (:zola-title "ZOLA_TITLE" nil nil t)
+     ;; Basic metadata
     (:zola-slug "ZOLA_SLUG" nil nil t)
-    (:zola-date "ZOLA_DATE" nil nil t)
+    (:zola-slug "HUGO_SLUG" nil nil t)
     (:zola-updated "ZOLA_UPDATED" nil nil t)
+    (:zola-updated "HUGO_UPDATED" nil nil t)
     (:zola-draft "ZOLA_DRAFT" nil nil t)
+    (:zola-draft "HUGO_DRAFT" nil nil t)
     (:zola-weight "ZOLA_WEIGHT" nil nil t)
+    (:zola-weight "HUGO_WEIGHT" nil nil t)
     ;; Taxonomies
     (:zola-tags "ZOLA_TAGS" nil nil split)
+    (:zola-tags "HUGO_TAGS" nil nil split)
     (:zola-categories "ZOLA_CATEGORIES" nil nil split)
+    (:zola-categories "HUGO_CATEGORIES" nil nil split)
     ;; Page settings
     (:zola-template "ZOLA_TEMPLATE" nil nil t)
-    (:zola-description "ZOLA_DESCRIPTION" nil nil t)
-    (:zola-extra "ZOLA_EXTRA" nil nil t))
+    (:zola-template "HUGO_TEMPLATE" nil nil t))
   :translate-alist
   '((template . ox-zola-lite-template)
     (src-block . ox-zola-lite-src-block)))
@@ -87,23 +90,21 @@
 
 (defun ox-zola-lite--build-frontmatter (info)
   "Build TOML frontmatter string from INFO plist."
-  (let* ((title (or (plist-get info :zola-title)
-                    (let ((t_ (plist-get info :title)))
-                      (when t_ (substring-no-properties (org-export-data t_ info))))))
+  (let* ((title (let ((t_ (plist-get info :title)))
+                  (when t_ (substring-no-properties (org-export-data t_ info)))))
          (author (let ((a (plist-get info :author)))
                    (when a (substring-no-properties (org-export-data a info)))))
-         (date (or (plist-get info :zola-date)
-                   (let ((d (plist-get info :date)))
-                     (when d (substring-no-properties (org-export-data d info))))))
+         (date (let ((d (plist-get info :date)))
+                 (when d (substring-no-properties (org-export-data d info)))))
          (updated (plist-get info :zola-updated))
          (slug (plist-get info :zola-slug))
          (draft (plist-get info :zola-draft))
          (weight (plist-get info :zola-weight))
          (template (plist-get info :zola-template))
-         (description (plist-get info :zola-description))
+         (description (let ((d (plist-get info :description)))
+                        (when d (substring-no-properties (org-export-data d info)))))
          (tags (plist-get info :zola-tags))
          (categories (plist-get info :zola-categories))
-         (extra (plist-get info :zola-extra))
          (lines nil)
          (taxonomies nil))
     ;; Build main fields
@@ -130,17 +131,14 @@
       (push (format "    tags = %s" (ox-zola-lite--format-toml-value tags)) taxonomies))
     (when categories
       (push (format "    categories = %s" (ox-zola-lite--format-toml-value categories)) taxonomies))
-    ;; Build extra section (arbitrary TOML)
     ;; Combine everything
     (concat
      "+++\n"
      (mapconcat #'identity (nreverse lines) "\n")
-     (when taxonomies
-       (concat "\n\n[taxonomies]\n"
-               (mapconcat #'identity (nreverse taxonomies) "\n")))
-     (when (org-string-nw-p extra)
-       (concat "\n\n[extra]\n" (ox-zola-lite--indent-lines extra 4)))
-     "\n+++\n\n")))
+      (when taxonomies
+        (concat "\n\n[taxonomies]\n"
+                (mapconcat #'identity (nreverse taxonomies) "\n")))
+      "\n+++\n\n")))
 
 ;;; Transcoders
 
