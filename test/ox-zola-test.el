@@ -18,7 +18,7 @@
 (ert-deftest ox-zola-test-backend-variable-exists ()
   "Test that ox-zola-backend variable exists and has correct default."
   (should (boundp 'ox-zola-backend))
-  (should (eq ox-zola-backend 'lite)))
+  (should (eq ox-zola-backend 'full)))
 
 (ert-deftest ox-zola-test-backend-variable-customizable ()
   "Test that ox-zola-backend is customizable."
@@ -32,7 +32,7 @@
           (ox-zola-switch-backend 'full)
           (should (eq ox-zola-backend 'full))
           (ox-zola-switch-backend 'lite)
-          (should (eq ox-zola-backend 'lite)))
+  (should (eq ox-zola-backend 'lite)))
       (setq ox-zola-backend original))))
 
 (ert-deftest ox-zola-test-ensure-backend-lite ()

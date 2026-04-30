@@ -45,7 +45,7 @@
   :group 'org-export
   :prefix "ox-zola-")
 
-(defcustom ox-zola-backend 'lite
+(defcustom ox-zola-backend 'full
   "The export backend to use.
 
 - `lite': Lightweight backend (default).  Derives from ox-md with no
