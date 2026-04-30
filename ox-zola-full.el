@@ -1,21 +1,40 @@
-;;; ox-zola.el --- Description -*- lexical-binding: t; -*-
+;;; ox-zola-full.el --- Full Zola export backend (advice-based) -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2023 Giovanni Crisalfi
+;; Copyright (C) 2023-2024 Giovanni Crisalfi
 ;;
-;; Author: gicrisf <giovanni.crisalfi@protonmail.com>
-;; Maintainer: gicrisf <giovanni.crisalfi@protonmail.com>
-;; Created: marzo 18, 2023
-;; Modified: marzo 18, 2023
-;; Version: 0.0.6
-;; Keywords: Org, markdown, docs
+;; Author: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
+;; Maintainer: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
+;; Version: 0.1.0
+;; Keywords: org, markdown, zola
 ;; Homepage: https://github.com/gicrisf/ox-zola
-;; Package-Requires: ((emacs "27.2"))
+;; Package-Requires: ((emacs "27.2") (ox-hugo "0.8"))
 ;;
 ;; This file is not part of GNU Emacs.
 ;;
 ;;; Commentary:
 ;;
-;;  Description
+;; Full-featured Zola export backend using an advice-based approach
+;; on top of ox-hugo.  Replaces ox-hugo's frontmatter generation,
+;; serializer, and link transcoder with Zola-compatible versions.
+;;
+;; Architecture:
+;;   1. Tear down the real Hugo backend, define a pseudo-one with our own
+;;      options-alist (maps ZOLA_* -> :hugo-* keys).
+;;   2. Install three :override advices on ox-hugo functions:
+;;      - org-hugo--get-front-matter -> ox-zola--get-front-matter
+;;      - org-hugo--gen-front-matter  -> ox-zola--gen-front-matter
+;;      - org-hugo-link               -> ox-zola-link
+;;   3. Run the export.  ox-hugo's data collection stays intact but
+;;      the serialization, link conversion, and [taxonomies] nesting
+;;      all go through our Zola functions.
+;;   4. Unwind: restore the real Hugo backend and remove advices.
+;;
+;; This avoids the body-filter duplication problem that the derived-backend
+;; approach ran into: because org-hugo-body-filter calls the overridden
+;; org-hugo--get-front-matter, it naturally gets the Zola version too.
+;;
+;; This file is loaded by ox-zola.el when `ox-zola-backend' is 'full.
+;; Users should not require this file directly; use ox-zola.el instead.
 ;;
 ;;; Code:
 
@@ -971,15 +990,34 @@ if an error occurs (via `unwind-protect')."
       (advice-remove 'org-hugo--gen-front-matter #'ox-zola--gen-front-matter)
       (advice-remove 'org-hugo-link #'ox-zola-link))))
 
-(defun ox-zola-export-wim-to-md ()
+;;;###autoload
+(defun ox-zola-full-export-wim-to-md (&optional all-subtrees async visible-only noerror)
   "Export the current subtree/all subtrees/current file to a Zola post."
-  (interactive)
-  (ox-zola--sandwiching #'org-hugo-export-wim-to-md))
+  (interactive "P")
+  (ox-zola--sandwiching
+   (lambda () (org-hugo-export-wim-to-md all-subtrees async visible-only noerror))))
 
-(defun ox-zola-export-to-md ()
+;;;###autoload
+(defun ox-zola-full-export-to-md (&optional async subtreep visible-only)
   "Export current buffer to a Zola-compatible Markdown file."
   (interactive)
-  (ox-zola--sandwiching #'org-hugo-export-to-md))
+  (ox-zola--sandwiching
+   (lambda () (org-hugo-export-to-md async subtreep visible-only))))
 
-(provide 'ox-zola)
-;;; ox-zola.el ends here
+;;;###autoload
+(defun ox-zola-full-export-as-md (&optional async subtreep visible-only)
+  "Export current buffer to a Zola Markdown buffer."
+  (interactive)
+  (ox-zola--sandwiching
+   (lambda () (org-hugo-export-as-md async subtreep visible-only))))
+
+;;;###autoload
+(defun ox-zola-full-export-to-md-and-open (&optional async subtreep visible-only)
+  "Export current buffer to a Zola Markdown file and open it."
+  (interactive)
+  (if async
+      (ox-zola-full-export-to-md async subtreep visible-only)
+    (find-file (ox-zola-full-export-to-md nil subtreep visible-only))))
+
+(provide 'ox-zola-full)
+;;; ox-zola-full.el ends here

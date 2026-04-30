@@ -24,24 +24,12 @@
 (require 'ox-md)
 (require 'org-element)
 
-;;; User Options
+;;; Commentary
 
-(defgroup ox-zola-lite nil
-  "Lightweight Org-mode exporter for Zola."
-  :group 'org-export
-  :prefix "ox-zola-lite-")
-
-(defcustom ox-zola-lite-base-dir nil
-  "Default base directory for Zola site.
-Can be overridden with #+ZOLA_BASE_DIR keyword."
-  :type '(choice (const nil) directory)
-  :group 'ox-zola-lite)
-
-(defcustom ox-zola-lite-section "posts"
-  "Default section (subdirectory under content/).
-Can be overridden with #+ZOLA_SECTION keyword."
-  :type 'string
-  :group 'ox-zola-lite)
+;; ox-zola-lite derives from ox-md (built-in, no deps).
+;; It uses the shared custom variables from ox-zola.el:
+;;   ox-zola-base-dir, ox-zola-section
+;; These are wired into the :options-alist below.
 
 ;;; Define Backend
 
@@ -52,9 +40,12 @@ Can be overridden with #+ZOLA_SECTION keyword."
         (?Z "To Markdown buffer" ox-zola-lite-export-as-md)
         (?o "To file and open" ox-zola-lite-export-to-md-and-open)))
   :options-alist
-  '(;; Site structure
-    (:zola-base-dir "ZOLA_BASE_DIR" nil ox-zola-lite-base-dir t)
-    (:zola-section "ZOLA_SECTION" nil ox-zola-lite-section t)
+  '(
+    ;; Site structure
+    (:zola-base-dir "ZOLA_BASE_DIR" nil ox-zola-base-dir t)
+    (:zola-base-dir "HUGO_BASE_DIR" nil nil t)
+    (:zola-section "ZOLA_SECTION" nil ox-zola-section t)
+    (:zola-section "HUGO_SECTION" nil nil t)
     ;; Basic metadata
     (:zola-title "ZOLA_TITLE" nil nil t)
     (:zola-slug "ZOLA_SLUG" nil nil t)
@@ -170,7 +161,7 @@ INFO is the export plist."
 (defun ox-zola-lite--output-path (info)
   "Compute output file path from INFO."
   (let* ((base-dir (plist-get info :zola-base-dir))
-         (section (plist-get info :zola-section))
+         (section (or (plist-get info :zola-section) "posts"))
          (slug (or (plist-get info :zola-slug)
                    (file-name-base (or (buffer-file-name) "export"))))
          (filename (concat slug ".md")))
@@ -188,7 +179,7 @@ EXT-PLIST are passed to `org-export-to-buffer'."
   (interactive)
   (org-export-to-buffer 'zola-lite "*Org Zola Export*"
     async subtreep visible-only body-only ext-plist
-    (lambda () (markdown-mode))))
+    (lambda () (text-mode))))
 
 ;;;###autoload
 (defun ox-zola-lite-export-to-md (&optional async subtreep visible-only body-only ext-plist)
@@ -202,7 +193,8 @@ EXT-PLIST are passed to `org-export-to-file'."
                 (org-export-get-environment 'zola-lite subtreep)))
          (outfile (ox-zola-lite--output-path info)))
     ;; Ensure directory exists
-    (make-directory (file-name-directory outfile) t)
+    (when (file-name-directory outfile)
+      (make-directory (file-name-directory outfile) t))
     (org-export-to-file 'zola-lite outfile
       async subtreep visible-only body-only ext-plist)))
 
