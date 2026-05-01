@@ -1,0 +1,27 @@
+#+title: Github clone con SSH
+CLOSED: [2022-02-28]
+:PROPERTIES:
+:EXPORT_HUGO_SECTION: software/github-clone-with-ssh
+:EXPORT_FILE_NAME: index
+:END:
+
+Per interfacciarsi a Github via ssh, bisogna eseguire una semplice procedura.
+
+Innanzitutto, verificare che ci sia un ssh-agent:
+
+#+begin_src bash
+$ eval "$(ssh-agent -s)"
+> Agent pid 59566
+#+end_src
+
+Quindi, generare una SSH key:
+
+#+begin_src bash
+$ ssh-keygen -t ed25519 -C "example@maildomain.com"
+#+end_src
+
+This is the content of the post.
+
+[[https://github.com][Aggiungere la chiave su Github]]
+
+[[id:e0f40bec-d5f3-4b18-9a98-e9778e5332a0][Git]]

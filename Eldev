@@ -9,7 +9,7 @@
 (eldev-add-extra-dependencies 'test '(:package ox-hugo))
 
 ;; Main project files
-(setf eldev-main-fileset '("ox-zola.el" "ox-zola-lite.el" "ox-zola-full.el"))
+(setf eldev-main-fileset '("ox-zola.el" "ox-zola-lite.el" "ox-zola-full.el" "ox-zola-alt.el"))
 
 ;; Test files
-(setf eldev-test-fileset '("test/ox-zola-test.el"))
+(setf eldev-test-fileset '("test/ox-zola-test.el" "test/ox-zola-alt-test.el"))

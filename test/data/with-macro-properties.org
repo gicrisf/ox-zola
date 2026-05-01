@@ -1,0 +1,17 @@
+:PROPERTIES:
+:ID:       397c3270-903b-444a-8bd3-32a1e16dc055
+:END:
+#+title: Comparison Post
+#+author: Giovanni Crisalfi
+#+date: 2025-04-15
+#+hugo_custom_front_matter: :taxonomies '((tags data) (categories web gui))
+#+MACRO: more @@html:<!-- more -->@@
+
+When choosing between D3 and Fabric, the fundamental distinction lies in their underlying technologies: SVG for D3 and Canvas for Fabric.
+
+{{{more}}}
+
+SVG vs Canvas: Core Differences
+
+- SVG is a vector-based format represented directly in the DOM as XML.
+- Canvas is a raster-based drawing surface.

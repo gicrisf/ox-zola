@@ -1,0 +1,6 @@
+#+zola_base_dir: /tmp/ox-zola-hugo-test
+#+hugo_section: docs
+#+title: Hugo Only Post
+#+hugo_draft: false
+
+This post uses only HUGO_ keywords, no ZOLA_ keywords.
