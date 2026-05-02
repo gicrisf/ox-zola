@@ -308,5 +308,67 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
                 (should (string-match-p "title = \"Hugo Only Post\"" content))))))
       (delete-directory temp-dir :recursive))))
 
+;;; End-to-end tests with persistent build directory
+
+(defvar ox-zola-alt-test-repo-root
+  (expand-file-name ".."
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "Repository root directory.")
+
+(defvar ox-zola-alt-test-build-dir
+  (expand-file-name "build/test-output" ox-zola-alt-test-repo-root)
+  "Build directory for E2E test artifacts.")
+
+(defun ox-zola-alt-test--clean-build-dir ()
+  "Ensure the build directory exists."
+  (unless (file-directory-p ox-zola-alt-test-build-dir)
+    (make-directory ox-zola-alt-test-build-dir t)))
+
+(ert-deftest ox-zola-alt-test-e2e-zola-keywords-output-path ()
+  "E2E: ZOLA_* keywords produce correct output path."
+  (let* ((org-inhibit-startup t)
+         (fixture-file (expand-file-name "e2e-zola-keywords.org"
+                                         ox-zola-alt-test-data-dir))
+         (base-dir (expand-file-name "zola-keywords"
+                                     ox-zola-alt-test-build-dir))
+         (expected-dir (expand-file-name "content/posts" base-dir)))
+    (ox-zola-alt-test--clean-build-dir)
+    (with-current-buffer (find-file-noselect fixture-file)
+      (unwind-protect
+          (progn
+            ;; Replace placeholder with actual path
+            (goto-char (point-min))
+            (while (search-forward "__ZOLA_BASE_DIR__" nil t)
+              (replace-match base-dir t t))
+            (let ((result (ox-zola-alt-export-to-md)))
+              (should (file-exists-p result))
+              (should (string-prefix-p expected-dir result))
+              (should (string-suffix-p "e2e-zola-keywords.md" result))))
+        (set-buffer-modified-p nil)
+        (kill-buffer)))))
+
+(ert-deftest ox-zola-alt-test-e2e-hugo-keywords-output-path ()
+  "E2E: HUGO_* keywords produce correct output path."
+  (let* ((org-inhibit-startup t)
+         (fixture-file (expand-file-name "e2e-hugo-keywords.org"
+                                         ox-zola-alt-test-data-dir))
+         (base-dir (expand-file-name "hugo-keywords"
+                                     ox-zola-alt-test-build-dir))
+         (expected-dir (expand-file-name "content/articles" base-dir)))
+    (ox-zola-alt-test--clean-build-dir)
+    (with-current-buffer (find-file-noselect fixture-file)
+      (unwind-protect
+          (progn
+            ;; Replace placeholder with actual path
+            (goto-char (point-min))
+            (while (search-forward "__HUGO_BASE_DIR__" nil t)
+              (replace-match base-dir t t))
+            (let ((result (ox-zola-alt-export-to-md)))
+              (should (file-exists-p result))
+              (should (string-prefix-p expected-dir result))
+              (should (string-suffix-p "e2e-hugo-keywords.md" result))))
+        (set-buffer-modified-p nil)
+        (kill-buffer)))))
+
 (provide 'ox-zola-alt-test)
 ;;; ox-zola-alt-test.el ends here

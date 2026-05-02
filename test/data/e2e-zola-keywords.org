@@ -1,0 +1,6 @@
+#+zola_base_dir: __ZOLA_BASE_DIR__
+#+zola_section: posts
+#+title: E2E Zola Keywords Test
+#+zola_tags: test e2e
+
+Content for ZOLA_* keyword test.

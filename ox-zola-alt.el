@@ -20,6 +20,21 @@
 ;;   - Transforms ox-hugo's alist to Zola TOML with [taxonomies] section
 ;;   - Loading this file does NOT affect regular ox-hugo exports
 ;;
+;; Keyword priority (highest to lowest):
+;;
+;;   1. In-buffer keywords: #+ZOLA_BASE_DIR: or #+HUGO_BASE_DIR:
+;;      - If BOTH appear in the same file, the LAST one wins (behavior `t`)
+;;      - Case-insensitive: #+zola_base_dir: works too
+;;
+;;   2. Global variable: `org-hugo-base-dir' (set in Emacs config)
+;;      - Used only if no in-buffer keyword is found
+;;
+;; The same priority applies to all paired keywords:
+;;   ZOLA_SECTION / HUGO_SECTION  →  :hugo-section  (default: org-hugo-section)
+;;   ZOLA_TAGS / HUGO_TAGS        →  :hugo-tags
+;;   ZOLA_DRAFT / HUGO_DRAFT      →  :hugo-draft
+;;   etc.
+;;
 ;;; Code:
 
 (require 'ox-hugo)
@@ -97,60 +112,65 @@ Only calls ORIG when :hugo-base-dir is set in INFO."
 
 ;;; Derived backend
 
+;; Format: (PROPERTY KEYWORD DEFAULT EVAL-DEFAULT BEHAVIOR)
+;; - EVAL-DEFAULT (4th element) gets evaluated by org-export--get-global-options
+;; - BEHAVIOR (5th element): t, newline, space, split, parse
 (org-export-define-derived-backend 'zola-alt 'hugo
+  :menu-entry
+  '(?Z "Export to Zola-compatible Markdown"
+       ((?z "To file"
+            (lambda (a s v _b)
+              (ox-zola-alt-export-to-md a s v)))
+        (?Z "To buffer"
+            (lambda (a s v _b)
+              (ox-zola-alt-export-as-md a s v)))
+        (?o "To file and open"
+            (lambda (a s v _b)
+              (if a
+                  (ox-zola-alt-export-to-md :async s v)
+                (org-open-file (ox-zola-alt-export-to-md nil s v)))))))
   :options-alist
-  '(;; ZOLA_* keyword aliases — HUGO_* keywords are inherited from parent
-    (:hugo-base-dir "ZOLA_BASE_DIR" nil nil t)
-    (:hugo-section "ZOLA_SECTION" nil nil t)
-    (:hugo-slug "ZOLA_SLUG" nil nil nil)
-    (:hugo-draft "ZOLA_DRAFT" nil nil nil)
-    (:hugo-weight "ZOLA_WEIGHT" nil nil nil)
+  '(;; Site structure — both ZOLA_* and HUGO_* keywords
+    (:hugo-base-dir "ZOLA_BASE_DIR" nil org-hugo-base-dir t)
+    (:hugo-base-dir "HUGO_BASE_DIR" nil org-hugo-base-dir t)
+    (:hugo-section "ZOLA_SECTION" nil org-hugo-section t)
+    (:hugo-section "HUGO_SECTION" nil org-hugo-section t)
+    ;; Basic metadata
+    (:hugo-slug "ZOLA_SLUG" nil nil t)
+    (:hugo-slug "HUGO_SLUG" nil nil t)
+    (:hugo-draft "ZOLA_DRAFT" nil nil t)
+    (:hugo-draft "HUGO_DRAFT" nil nil t)
+    (:hugo-weight "ZOLA_WEIGHT" nil nil space)
+    (:hugo-weight "HUGO_WEIGHT" nil nil space)
+    ;; Taxonomies
     (:hugo-tags "ZOLA_TAGS" nil nil newline)
+    (:hugo-tags "HUGO_TAGS" nil nil newline)
     (:hugo-categories "ZOLA_CATEGORIES" nil nil newline)
+    (:hugo-categories "HUGO_CATEGORIES" nil nil newline)
     ;; Cross-named (Zola field name ≠ Hugo keyword name)
-    (:hugo-lastmod "ZOLA_UPDATED" nil nil nil)
-    (:hugo-layout "ZOLA_TEMPLATE" nil nil nil)
+    (:hugo-lastmod "ZOLA_UPDATED" nil nil t)
+    (:hugo-lastmod "HUGO_LASTMOD" nil nil t)
+    (:hugo-layout "ZOLA_TEMPLATE" nil nil t)
+    (:hugo-layout "HUGO_LAYOUT" nil nil t)
     ;; Extended
     (:hugo-aliases "ZOLA_ALIASES" nil nil space)
-    (:hugo-custom-front-matter "ZOLA_CUSTOM_FRONT_MATTER" nil nil space)))
+    (:hugo-aliases "HUGO_ALIASES" nil nil space)
+    (:hugo-custom-front-matter "ZOLA_CUSTOM_FRONT_MATTER" nil nil space)
+    (:hugo-custom-front-matter "HUGO_CUSTOM_FRONT_MATTER" nil nil space)))
 
 ;;; Output path computation
 
-(defun ox-zola-alt-debug-info ()
-  "Debug: show what keywords are being read from current buffer.
-Run this interactively to diagnose keyword recognition issues."
+(defun ox-zola-alt-debug ()
+  "Show current export settings for this buffer."
   (interactive)
-  (let* ((info (org-combine-plists
-                (org-export--get-export-attributes 'zola-alt)
-                (org-export--get-buffer-attributes)
-                (org-export-get-environment 'zola-alt))))
-    (message "DEBUG ox-zola-alt info:\n  :hugo-base-dir = %S\n  :hugo-section = %S\n  :hugo-tags = %S"
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in org-mode buffer"))
+  (let ((info (org-export-get-environment 'zola-alt)))
+    (message "base-dir=%S section=%S tags=%S draft=%S"
              (plist-get info :hugo-base-dir)
              (plist-get info :hugo-section)
-             (plist-get info :hugo-tags))))
-
-(defun ox-zola-alt-debug-options ()
-  "Debug: show all options available for zola-alt backend.
-Check if HUGO_BASE_DIR is in the list."
-  (interactive)
-  (let* ((all-opts (org-export-get-all-options 'zola-alt))
-         (base-dir-opts (seq-filter (lambda (o) (eq (car o) :hugo-base-dir)) all-opts)))
-    (message "DEBUG: :hugo-base-dir options:\n%S" base-dir-opts)))
-
-(defun ox-zola-alt-debug-buffer-keywords ()
-  "Debug: scan buffer for HUGO/ZOLA keywords and show what's found."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (let ((found nil))
-      (while (re-search-forward "^#\\+\\(hugo\\|zola\\)_[^:]+:" nil t)
-        (push (buffer-substring-no-properties
-               (line-beginning-position) (line-end-position))
-              found))
-      (message "DEBUG: Found keywords in buffer:\n%s"
-               (if found
-                   (mapconcat #'identity (nreverse found) "\n")
-                 "(none)")))))
+             (plist-get info :hugo-tags)
+             (plist-get info :hugo-draft))))
 
 (defun ox-zola-alt--output-path (info)
   "Compute output file path from INFO plist."

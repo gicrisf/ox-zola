@@ -1,0 +1,6 @@
+#+hugo_base_dir: __HUGO_BASE_DIR__
+#+hugo_section: articles
+#+title: E2E Hugo Keywords Test
+#+hugo_tags: test e2e
+
+Content for HUGO_* keyword test.
