@@ -147,28 +147,19 @@
 (when (require 'ox-hugo nil t)
   (require 'ox-zola-full)
 
-  (ert-deftest ox-zola-full-test-gen-front-matter-toml-delimiters ()
-    "Test that TOML frontmatter uses +++ delimiters."
-    (let ((data '((title . "Test Post"))))
-      (should (string-prefix-p "+++"
-                                (ox-zola--gen-front-matter data "toml")))
-      (should (string-match-p "\n\\+\\+\\+\n$"
-                              (ox-zola--gen-front-matter data "toml")))))
-
-  (ert-deftest ox-zola-full-test-gen-front-matter-taxonomies ()
-    "Test that taxonomies are nested under [taxonomies] section."
-    (let ((data '((title . "Test Post")
-                  (tags . ("emacs" "org"))
-                  (categories . ("tutorials")))))
-      (let ((result (ox-zola--gen-front-matter data "toml")))
-        (should (string-match-p "taxonomies" result))
-        (should (string-match-p "emacs" result))
-        (should (string-match-p "org" result))
-        (should (string-match-p "tutorials" result)))))
-
   (ert-deftest ox-zola-full-test-special-block-properties-customizable ()
     "Test that special block properties variable is customizable."
-    (should (custom-variable-p 'ox-zola-special-block-type-properties))))
+    (should (custom-variable-p 'ox-zola-full-special-block-type-properties)))
+
+  ;; Test that zola-full backend is registered
+  (ert-deftest ox-zola-full-test-backend-exists ()
+    "Test that the zola-full backend is properly registered."
+    (should (org-export-get-backend 'zola-full)))
+
+  (ert-deftest ox-zola-full-test-backend-derives-from-hugo ()
+    "Test that zola-full backend derives from hugo."
+    (let ((backend (org-export-get-backend 'zola-full)))
+      (should (eq (org-export-backend-parent backend) 'hugo)))))
 
 ;;; End-to-end tests with fixture data
 
@@ -480,21 +471,17 @@ BACKEND-FN is either `ox-zola-lite-export-as-md' or `ox-zola-full-export-as-md'.
   (require 'ox-zola-full)
 
   (ert-deftest ox-zola-full-test-reads-zola-keywords ()
-    "Test that ZOLA_* keywords are read via the pseudo hugo backend."
-    (let ((org-inhibit-startup t)
-          (orig-backend (org-export-get-backend 'hugo)))
+    "Test that ZOLA_* keywords are read via the zola-full backend."
+    (let ((org-inhibit-startup t))
       (with-temp-buffer
         (insert (ox-zola-test--read-fixture "basic-post.org"))
         (org-mode)
-        (ox-zola--set-pseudohugo-backend)
-        (unwind-protect
-            (let* ((info (org-combine-plists
-                          (org-export--get-export-attributes 'hugo)
-                          (org-export--get-buffer-attributes)
-                          (org-export-get-environment 'hugo))))
-              (should (equal (plist-get info :hugo-base-dir) "/tmp/ox-zola-test"))
-              (should (equal (plist-get info :hugo-section) "posts")))
-          (org-export-register-backend orig-backend)))))
+        (let* ((info (org-combine-plists
+                      (org-export--get-export-attributes 'zola-full)
+                      (org-export--get-buffer-attributes)
+                      (org-export-get-environment 'zola-full))))
+          (should (equal (plist-get info :hugo-base-dir) "/tmp/ox-zola-test"))
+          (should (equal (plist-get info :hugo-section) "posts"))))))
 
   (ert-deftest ox-zola-full-test-export-to-buffer ()
     "Export basic-post.org through full backend to buffer."
