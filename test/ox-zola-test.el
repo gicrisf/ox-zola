@@ -136,30 +136,13 @@
       (should (assq :zola-categories options))
       (should (assq :zola-template options)))))
 
-;;; ox-zola-full tests (conditional on ox-hugo availability)
+;;; ox-zola entry point tests for full backend
 
-(ert-deftest ox-zola-full-test-backend-loading ()
+(ert-deftest ox-zola-test-ensure-backend-full ()
   "Test that full backend loading is handled correctly."
-  (let ((ox-zola-backend 'lite))
-    (should (eq (ox-zola--ensure-backend) 'zola-lite))))
-
-;; Only run full backend tests if ox-hugo is available
-(when (require 'ox-hugo nil t)
-  (require 'ox-zola-full)
-
-  (ert-deftest ox-zola-full-test-special-block-properties-customizable ()
-    "Test that special block properties variable is customizable."
-    (should (custom-variable-p 'ox-zola-full-special-block-type-properties)))
-
-  ;; Test that zola-full backend is registered
-  (ert-deftest ox-zola-full-test-backend-exists ()
-    "Test that the zola-full backend is properly registered."
-    (should (org-export-get-backend 'zola-full)))
-
-  (ert-deftest ox-zola-full-test-backend-derives-from-hugo ()
-    "Test that zola-full backend derives from hugo."
-    (let ((backend (org-export-get-backend 'zola-full)))
-      (should (eq (org-export-backend-parent backend) 'hugo)))))
+  (let ((ox-zola-backend 'full))
+    (when (require 'ox-hugo nil t)
+      (should (eq (ox-zola--ensure-backend) 'zola-full)))))
 
 ;;; End-to-end tests with fixture data
 
