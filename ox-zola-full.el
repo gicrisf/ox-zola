@@ -39,6 +39,34 @@
 
 (require 'ox-hugo)
 
+;;; User options
+
+(defcustom ox-zola-full-special-block-type-properties
+  '(("audio" . (:raw t))
+    ("youtube" . (:trim-pre t :trim-post t)))
+  "Alist mapping special block types to properties.
+
+Each element of the alist is of the form (TYPE . PLIST) where
+TYPE is a string holding the special block's type and PLIST is a
+property list for that TYPE.
+
+Properties recognized in the PLIST:
+
+- :raw :: When set to t, the contents of the special block are
+          exported raw i.e. as typed in the Org buffer.
+
+- :trim-pre :: When set to t, the whitespace before the special
+               block is removed.
+
+- :trim-post :: When set to t, the whitespace after the special
+               block is removed.
+
+For the special block types not specified in this variable, the
+default behavior is same as if (:raw nil :trim-pre nil :trim-post
+nil) plist were associated with them."
+  :group 'ox-zola
+  :type '(alist :key-type string :value-type (plist :key-type symbol :value-type boolean)))
+
 ;;; Frontmatter transformation
 
 (defvar ox-zola-full--active nil
@@ -129,6 +157,139 @@ This works around ox-hugo 0.12.1 missing the behavior field on HUGO_BASE_DIR."
                                  (string-trim (match-string 2)))))))))
   info)
 
+;;; Transcoders (special-block, link)
+
+(defun ox-zola-full-link (link desc info)
+  "Convert LINK to Markdown with Zola figure shortcodes.
+DESC is the link description.  INFO is the export plist.
+
+For inline images that would use Hugo's figure shortcode,
+converts to Zola's syntax: {{ figure(src=...) }}"
+  (let* ((raw-path (org-element-property :path link))
+         (type (org-element-property :type link))
+         (link-is-url (member type '("http" "https" "ftp" "mailto"))))
+    ;; Handle inline images with figure shortcode
+    (if (and (org-export-inline-image-p link org-html-inline-image-rules)
+             (not (org-html-standalone-image-p
+                   (org-export-get-parent link) info)))
+        ;; Inline image - use Markdown syntax
+        (let* ((parent (org-export-get-parent link))
+               (parent-type (org-element-type parent))
+               (grand-parent (when (eq parent-type 'link)
+                               (org-export-get-parent parent)))
+               (useful-parent (or grand-parent parent))
+               (attr (org-export-read-attribute :attr_html useful-parent))
+               (alt-text (plist-get attr :alt))
+               (source (if link-is-url
+                           (concat type ":" raw-path)
+                         (org-hugo--attachment-rewrite-maybe raw-path info))))
+          (format "![%s](%s)" (or alt-text "") source))
+      ;; Check for standalone figure (paragraph with only an image)
+      (if (and (org-export-inline-image-p link org-html-inline-image-rules)
+               (org-html-standalone-image-p
+                (org-export-get-parent link) info))
+          ;; Standalone figure - use Zola shortcode
+          (let* ((parent (org-export-get-parent link))
+                 (parent-type (org-element-type parent))
+                 (grand-parent (when (eq parent-type 'link)
+                                 (org-export-get-parent parent)))
+                 (useful-parent (or grand-parent parent))
+                 (attr (org-export-read-attribute :attr_html useful-parent))
+                 (caption (or
+                           (org-string-nw-p
+                            (org-export-data
+                             (org-export-get-caption (org-export-get-parent-element link))
+                             info))
+                           (plist-get attr :caption)))
+                 (source (if link-is-url
+                             (concat type ":" raw-path)
+                           (org-hugo--attachment-rewrite-maybe raw-path info)))
+                 (figure-params `((src . ,source)
+                                  (alt . ,(plist-get attr :alt))
+                                  (caption . ,(when (org-string-nw-p caption)
+                                                (replace-regexp-in-string "\"" "\\\\\"" caption)))
+                                  (title . ,(plist-get attr :title))
+                                  (class . ,(plist-get attr :class))
+                                  (width . ,(plist-get attr :width))
+                                  (height . ,(plist-get attr :height))
+                                  (link . ,(plist-get attr :link))
+                                  (target . ,(plist-get attr :target))
+                                  (rel . ,(plist-get attr :rel))
+                                  (attrlink . ,(plist-get attr :attrlink))))
+                 (figure-param-str ""))
+            (dolist (param figure-params)
+              (let ((name (car param))
+                    (val (cdr param)))
+                (when val
+                  (setq figure-param-str (concat figure-param-str
+                                                 (format "%s=\"%s\" " name val))))))
+            (format "{{ figure(%s) }}" (org-trim figure-param-str)))
+        ;; Fall back to ox-hugo's link handling
+        (org-hugo-link link desc info)))))
+
+(defun ox-zola-full-special-block (special-block contents info)
+  "Transcode SPECIAL-BLOCK to Zola shortcode syntax.
+CONTENTS is the block contents.  INFO is the export plist.
+
+Zola shortcode syntax:
+- Inline: {{ shortcode(args) }}
+- Block: {% shortcode(args) %}...{% end %}"
+  (let* ((block-type (org-element-property :type special-block))
+         (block-type-plist (cdr (assoc block-type ox-zola-full-special-block-type-properties)))
+         (header (org-babel-parse-header-arguments
+                  (car (org-element-property :header special-block))))
+         (trim-pre (or (alist-get :trim-pre header)
+                       (plist-get block-type-plist :trim-pre)))
+         (trim-pre (org-hugo--value-get-true-p trim-pre))
+         (trim-pre-tag (if trim-pre org-hugo--trim-pre-marker ""))
+         (last-element-p (null (org-export-get-next-element special-block info)))
+         (trim-post (unless last-element-p
+                      (or (alist-get :trim-post header)
+                          (plist-get block-type-plist :trim-post))))
+         (trim-post (org-hugo--value-get-true-p trim-post))
+         (trim-post-tag (if trim-post org-hugo--trim-post-marker ""))
+         (paired-shortcodes (let* ((str (plist-get info :hugo-paired-shortcodes))
+                                   (str-list (when (org-string-nw-p str)
+                                               (split-string str " "))))
+                              str-list))
+         (sc-regexp "\\`%%?%s\\'")
+         (html-attr (org-export-read-attribute :attr_html special-block))
+         (contents (when (stringp contents)
+                     (org-trim
+                      (if (plist-get block-type-plist :raw)
+                          (org-element-interpret-data (org-element-contents special-block))
+                        contents)))))
+    (when contents
+      (cond
+       ;; Paired shortcode (block-style)
+       ((cl-member block-type paired-shortcodes
+                   :test (lambda (b sc)
+                           (string-match-p (format sc-regexp b) sc)))
+        (let* ((attr-sc (org-export-read-attribute :attr_shortcode special-block))
+               ;; Positional arguments
+               (pos-args (and (null attr-sc)
+                              (let* ((raw-list (org-element-property :attr_shortcode special-block))
+                                     (raw-str (mapconcat #'identity raw-list " ")))
+                                (org-string-nw-p raw-str))))
+               ;; Named arguments
+               (named-args (unless pos-args
+                             (let* ((couples
+                                     (cl-loop for (a b) on attr-sc by #'cddr while b
+                                              collect (list (substring (symbol-name a) 1) b)))
+                                    (raw-str
+                                     (mapconcat (lambda (x) (concat (car x) "=" (cadr x))) couples ", ")))
+                               (org-string-nw-p raw-str))))
+               (sc-args (or pos-args named-args))
+               (sc-args (if sc-args (concat " " sc-args " ") ""))
+               (sc-begin (format "%s{%s %s(%s) %s}"
+                                 trim-pre-tag "%" block-type sc-args "%"))
+               (sc-end (format "{%s end %s}%s"
+                               "%" "%" trim-post-tag)))
+          (format "%s\n%s\n%s" sc-begin contents sc-end)))
+       ;; Default: fall back to ox-hugo's handling
+       (t
+        (org-hugo-special-block special-block contents info))))))
+
 ;;; Derived backend
 
 ;; Format: (PROPERTY KEYWORD DEFAULT EVAL-DEFAULT BEHAVIOR)
@@ -136,6 +297,8 @@ This works around ox-hugo 0.12.1 missing the behavior field on HUGO_BASE_DIR."
 ;; - BEHAVIOR (5th element): t, newline, space, split, parse
 (org-export-define-derived-backend 'zola-full 'hugo
   :filters-alist '((:filter-options . ox-zola-full--filter-options))
+  :translate-alist '((link . ox-zola-full-link)
+                     (special-block . ox-zola-full-special-block))
   :menu-entry
   '(?Z "Export to Zola Markdown (full)"
        ((?z "Subtree/File (WIM)"
