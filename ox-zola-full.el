@@ -87,7 +87,9 @@ Returns a new alist suitable for Zola's TOML frontmatter."
       (setf (alist-get 'template result) layout)
       (setq result (assq-delete-all 'layout result)))
     ;; Remove Hugo-specific fields not used by Zola
-    (dolist (key '(publishDate expiryDate blackfriday logbook menu resources))
+    (dolist (key '(publishDate expiryDate blackfriday logbook menu resources
+                   outputs headless isCJKLanguage markup series linkTitle
+                   type url videos))
       (setq result (assq-delete-all key result)))
     ;; Build [taxonomies] section from tags/categories
     (let ((tags (alist-get 'tags result))
