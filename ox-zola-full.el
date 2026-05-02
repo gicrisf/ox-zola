@@ -344,7 +344,13 @@ Zola shortcode syntax:
     (:hugo-aliases "ZOLA_ALIASES" nil nil space)
     (:hugo-aliases "HUGO_ALIASES" nil nil space)
     (:hugo-custom-front-matter "ZOLA_CUSTOM_FRONT_MATTER" nil nil space)
-    (:hugo-custom-front-matter "HUGO_CUSTOM_FRONT_MATTER" nil nil space)))
+    (:hugo-custom-front-matter "HUGO_CUSTOM_FRONT_MATTER" nil nil space)
+    ;; Paired shortcodes
+    (:hugo-paired-shortcodes "ZOLA_PAIRED_SHORTCODES" nil org-hugo-paired-shortcodes space)
+    (:hugo-paired-shortcodes "HUGO_PAIRED_SHORTCODES" nil org-hugo-paired-shortcodes space)
+    ;; Additional commonly used
+    (:hugo-audio "ZOLA_AUDIO" nil nil)
+    (:hugo-images "ZOLA_IMAGES" nil nil newline)))
 
 ;;; Output path computation
 

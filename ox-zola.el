@@ -48,15 +48,20 @@
 (defcustom ox-zola-backend 'full
   "The export backend to use.
 
-- `lite': Lightweight backend (default).  Derives from ox-md with no
+- `lite': Lightweight backend.  Derives from ox-md with no
   external dependencies.  Supports file-based exports with basic
   frontmatter.
 
-- `full': Full-featured backend.  Uses ox-hugo with an advice-based
-  approach to produce Zola-compatible frontmatter and shortcodes."
+- `full': Full-featured backend (default).  Uses ox-hugo with a
+  derived backend approach to produce Zola-compatible frontmatter
+  and shortcodes.  Supports subtree exports.
+
+- `pseudo': Legacy backend.  Uses ox-hugo with a pseudo-backend
+  approach (advice-based).  Kept for users who prefer this style."
   :group 'ox-zola
   :type '(choice (const :tag "Lite (no dependencies)" lite)
-                 (const :tag "Full (requires ox-hugo)" full)))
+                 (const :tag "Full (requires ox-hugo)" full)
+                 (const :tag "Pseudo (legacy, requires ox-hugo)" pseudo)))
 
 (defcustom ox-zola-base-dir nil
   "Default base directory for Zola site.
@@ -79,6 +84,9 @@ Used by both lite and full backends."
 
 (defvar ox-zola--full-loaded nil
   "Non-nil if the full backend has been loaded.")
+
+(defvar ox-zola--pseudo-loaded nil
+  "Non-nil if the pseudo backend has been loaded.")
 
 (defun ox-zola--ensure-backend ()
   "Ensure the selected backend is loaded.
@@ -104,8 +112,23 @@ Install it or switch to 'lite' backend? [y = switch to lite, n = abort] ")
                (ox-zola--ensure-backend))
            (user-error "Please install ox-hugo to use the 'full backend"))))
      'zola-full)
+    ('pseudo
+     (unless ox-zola--pseudo-loaded
+       (if (require 'ox-hugo nil t)
+           (progn
+             (require 'ox-zola-pseudo)
+             (setq ox-zola--pseudo-loaded t))
+         (if (yes-or-no-p
+              "The 'pseudo' backend requires ox-hugo which is not installed.\n\
+Install it or switch to 'lite' backend? [y = switch to lite, n = abort] ")
+             (progn
+               (setq ox-zola-backend 'lite)
+               (message "Switched to 'lite backend.  Set ox-zola-backend to 'pseudo after installing ox-hugo.")
+               (ox-zola--ensure-backend))
+           (user-error "Please install ox-hugo to use the 'pseudo backend"))))
+     'zola-pseudo)
     (_
-     (user-error "Invalid ox-zola-backend value: %s (use 'lite or 'full)"
+     (user-error "Invalid ox-zola-backend value: %s (use 'lite, 'full, or 'pseudo)"
                  ox-zola-backend))))
 
 ;;; Unified Export Commands
@@ -121,7 +144,9 @@ Uses the backend specified by `ox-zola-backend'."
       ('zola-lite
        (ox-zola-lite-export-as-md async subtreep visible-only body-only ext-plist))
       ('zola-full
-       (ox-zola-full-export-as-md async subtreep visible-only)))))
+       (ox-zola-full-export-as-md async subtreep visible-only))
+      ('zola-pseudo
+       (ox-zola-pseudo-export-as-md async subtreep visible-only)))))
 
 ;;;###autoload
 (defun ox-zola-export-to-md (&optional async subtreep visible-only body-only ext-plist)
@@ -134,7 +159,9 @@ Uses the backend specified by `ox-zola-backend'."
       ('zola-lite
        (ox-zola-lite-export-to-md async subtreep visible-only body-only ext-plist))
       ('zola-full
-       (ox-zola-full-export-to-md async subtreep visible-only)))))
+       (ox-zola-full-export-to-md async subtreep visible-only))
+      ('zola-pseudo
+       (ox-zola-pseudo-export-to-md async subtreep visible-only)))))
 
 ;;;###autoload
 (defun ox-zola-export-to-md-and-open (&optional async subtreep visible-only body-only ext-plist)
@@ -147,7 +174,9 @@ Uses the backend specified by `ox-zola-backend'."
       ('zola-lite
        (ox-zola-lite-export-to-md-and-open async subtreep visible-only body-only ext-plist))
       ('zola-full
-       (ox-zola-full-export-to-md-and-open async subtreep visible-only)))))
+       (ox-zola-full-export-to-md-and-open async subtreep visible-only))
+      ('zola-pseudo
+       (ox-zola-pseudo-export-to-md-and-open async subtreep visible-only)))))
 
 ;;;###autoload
 (defun ox-zola-export-wim-to-md (&optional all-subtrees async visible-only noerror)
@@ -158,25 +187,27 @@ This command intelligently exports based on context:
 - If ALL-SUBTREES is non-nil, export all valid subtrees
 - Otherwise, do file-based export
 
-Note: Subtree export features are only available with the \='full backend.
-With the \='lite backend, this falls back to file-based export."
+Note: Subtree export features are only available with the full/pseudo backends.
+With the lite backend, this falls back to file-based export."
   (interactive "P")
   (let ((backend (ox-zola--ensure-backend)))
     (pcase backend
       ('zola-lite
        (when (and all-subtrees (called-interactively-p 'any))
-         (message "Note: Subtree export requires 'full backend. Doing file export."))
+         (message "Note: Subtree export requires 'full or 'pseudo backend. Doing file export."))
        (ox-zola-lite-export-to-md nil nil visible-only))
       ('zola-full
-       (ox-zola-full-export-wim-to-md all-subtrees async visible-only noerror)))))
+       (ox-zola-full-export-wim-to-md all-subtrees async visible-only noerror))
+      ('zola-pseudo
+       (ox-zola-pseudo-export-wim-to-md all-subtrees async visible-only noerror)))))
 
 ;;;###autoload
 (defun ox-zola-switch-backend (backend)
-  "Switch to BACKEND (\\='lite or \\='full) for Zola export.
+  "Switch to BACKEND (\\='lite, \\='full, or \\='pseudo) for Zola export.
 
 Interactive command to easily switch between backends."
   (interactive
-   (list (intern (completing-read "Select backend: " '("lite" "full") nil t))))
+   (list (intern (completing-read "Select backend: " '("lite" "full" "pseudo") nil t))))
   (setq ox-zola-backend backend)
   (message "Switched to '%s backend" backend))
 
