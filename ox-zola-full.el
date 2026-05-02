@@ -1,4 +1,4 @@
-;;; ox-zola-alt.el --- Zola export via ox-hugo with minimal advice -*- lexical-binding: t; -*-
+;;; ox-zola-full.el --- Zola export via ox-hugo with minimal advice -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2023-2024 Giovanni Crisalfi
 ;;
@@ -13,7 +13,7 @@
 ;;
 ;;; Commentary:
 ;;
-;; Minimal Zola export backend using ox-hugo with targeted advice.
+;; Full-featured Zola export backend using ox-hugo with targeted advice.
 ;;
 ;; Architecture:
 ;;   - Single :around advice on `org-hugo--gen-front-matter' (per-export only)
@@ -41,11 +41,11 @@
 
 ;;; Frontmatter transformation
 
-(defvar ox-zola-alt--active nil
-  "Non-nil during ox-zola-alt export.
+(defvar ox-zola-full--active nil
+  "Non-nil during ox-zola-full export.
 Used to conditionally apply Zola transformations.")
 
-(defun ox-zola-alt--transform-frontmatter (data)
+(defun ox-zola-full--transform-frontmatter (data)
   "Transform DATA alist for Zola: taxonomies section, field renames.
 DATA is an alist of the form ((KEY1 . VAL1) (KEY2 . VAL2) ...).
 Returns a new alist suitable for Zola's TOML frontmatter."
@@ -75,36 +75,36 @@ Returns a new alist suitable for Zola's TOML frontmatter."
         (setq result (assq-delete-all 'categories result))))
     result))
 
-(defun ox-zola-alt--gen-front-matter-advice (orig data format)
+(defun ox-zola-full--gen-front-matter-advice (orig data format)
   "Advice for `org-hugo--gen-front-matter'.
-When `ox-zola-alt--active' is non-nil, transform DATA for Zola
+When `ox-zola-full--active' is non-nil, transform DATA for Zola
 and encode as TOML.  Otherwise, call ORIG with DATA and FORMAT."
-  (if ox-zola-alt--active
-      (let ((transformed (ox-zola-alt--transform-frontmatter data))
+  (if ox-zola-full--active
+      (let ((transformed (ox-zola-full--transform-frontmatter data))
             (tomelr-indent-multi-line-strings t))
         (format "+++\n%s\n+++\n" (tomelr-encode transformed)))
     (funcall orig data format)))
 
 ;;; Per-export advice management
 
-(defun ox-zola-alt--with-advice (fn)
+(defun ox-zola-full--with-advice (fn)
   "Install Zola advice, call FN, then remove advice.
 This ensures regular ox-hugo exports are unaffected."
   (advice-add 'org-hugo--gen-front-matter :around
-              #'ox-zola-alt--gen-front-matter-advice)
+              #'ox-zola-full--gen-front-matter-advice)
   (advice-add 'org-hugo--copy-ltximg-maybe :around
-              #'ox-zola-alt--copy-ltximg-advice)
+              #'ox-zola-full--copy-ltximg-advice)
   (unwind-protect
-      (let ((ox-zola-alt--active t))
+      (let ((ox-zola-full--active t))
         (funcall fn))
     (advice-remove 'org-hugo--gen-front-matter
-                   #'ox-zola-alt--gen-front-matter-advice)
+                   #'ox-zola-full--gen-front-matter-advice)
     (advice-remove 'org-hugo--copy-ltximg-maybe
-                   #'ox-zola-alt--copy-ltximg-advice)))
+                   #'ox-zola-full--copy-ltximg-advice)))
 
 ;;; Advice to guard org-hugo--copy-ltximg-maybe against nil :hugo-base-dir
 
-(defun ox-zola-alt--copy-ltximg-advice (orig info)
+(defun ox-zola-full--copy-ltximg-advice (orig info)
   "Advice to guard `org-hugo--copy-ltximg-maybe' against nil :hugo-base-dir.
 Only calls ORIG when :hugo-base-dir is set in INFO."
   (when (plist-get info :hugo-base-dir)
@@ -112,7 +112,7 @@ Only calls ORIG when :hugo-base-dir is set in INFO."
 
 ;;; Options filter (workaround for ox-hugo 0.12.1 missing behavior field)
 
-(defun ox-zola-alt--filter-options (info backend)
+(defun ox-zola-full--filter-options (info backend)
   "Ensure :hugo-base-dir is set from in-buffer keyword if present.
 INFO is the export info plist, BACKEND is ignored.
 This works around ox-hugo 0.12.1 missing the behavior field on HUGO_BASE_DIR."
@@ -134,21 +134,24 @@ This works around ox-hugo 0.12.1 missing the behavior field on HUGO_BASE_DIR."
 ;; Format: (PROPERTY KEYWORD DEFAULT EVAL-DEFAULT BEHAVIOR)
 ;; - EVAL-DEFAULT (4th element) gets evaluated by org-export--get-global-options
 ;; - BEHAVIOR (5th element): t, newline, space, split, parse
-(org-export-define-derived-backend 'zola-alt 'hugo
-  :filters-alist '((:filter-options . ox-zola-alt--filter-options))
+(org-export-define-derived-backend 'zola-full 'hugo
+  :filters-alist '((:filter-options . ox-zola-full--filter-options))
   :menu-entry
-  '(?Z "Export to Zola-compatible Markdown"
-       ((?z "To file"
+  '(?Z "Export to Zola Markdown (full)"
+       ((?z "Subtree/File (WIM)"
             (lambda (a s v _b)
-              (ox-zola-alt-export-to-md a s v)))
-        (?Z "To buffer"
+              (ox-zola-full-export-wim-to-md nil a v)))
+        (?Z "File to buffer"
             (lambda (a s v _b)
-              (ox-zola-alt-export-as-md a s v)))
-        (?o "To file and open"
+              (ox-zola-full-export-as-md a s v)))
+        (?f "File to file"
+            (lambda (a s v _b)
+              (ox-zola-full-export-to-md a s v)))
+        (?o "File and open"
             (lambda (a s v _b)
               (if a
-                  (ox-zola-alt-export-to-md :async s v)
-                (org-open-file (ox-zola-alt-export-to-md nil s v)))))))
+                  (ox-zola-full-export-to-md :async s v)
+                (org-open-file (ox-zola-full-export-to-md nil s v)))))))
   :options-alist
   '(;; Site structure — both ZOLA_* and HUGO_* keywords
     (:hugo-base-dir "ZOLA_BASE_DIR" nil org-hugo-base-dir t)
@@ -180,21 +183,7 @@ This works around ox-hugo 0.12.1 missing the behavior field on HUGO_BASE_DIR."
 
 ;;; Output path computation
 
-(defun ox-zola-alt-debug ()
-  "Show current export settings for this buffer."
-  (interactive)
-  (unless (derived-mode-p 'org-mode)
-    (user-error "Not in org-mode buffer"))
-  (let ((info (ox-zola-alt--filter-options
-               (org-export-get-environment 'zola-alt)
-               'zola-alt)))
-    (message "base-dir=%S section=%S tags=%S draft=%S"
-             (plist-get info :hugo-base-dir)
-             (plist-get info :hugo-section)
-             (plist-get info :hugo-tags)
-             (plist-get info :hugo-draft))))
-
-(defun ox-zola-alt--output-path (info)
+(defun ox-zola-full--output-path (info)
   "Compute output file path from INFO plist."
   (let* ((base-dir (plist-get info :hugo-base-dir))
          (section (or (plist-get info :hugo-section) "posts"))
@@ -210,137 +199,52 @@ This works around ox-hugo 0.12.1 missing the behavior field on HUGO_BASE_DIR."
 ;;; Export commands
 
 ;;;###autoload
-(defun ox-zola-alt-export-as-md (&optional async subtreep visible-only)
+(defun ox-zola-full-export-as-md (&optional async subtreep visible-only)
   "Export current buffer to a Zola Markdown buffer.
 Optional arguments ASYNC, SUBTREEP, and VISIBLE-ONLY are passed
 to `org-export-to-buffer'."
   (interactive)
-  (ox-zola-alt--with-advice
+  (ox-zola-full--with-advice
    (lambda ()
-     (org-export-to-buffer 'zola-alt "*Org Zola Alt Export*"
+     (org-export-to-buffer 'zola-full "*Org Zola Export*"
        async subtreep visible-only))))
 
 ;;;###autoload
-(defun ox-zola-alt-export-to-md (&optional async subtreep visible-only)
+(defun ox-zola-full-export-to-md (&optional async subtreep visible-only)
   "Export current buffer to a Zola Markdown file.
 Optional arguments ASYNC, SUBTREEP, and VISIBLE-ONLY are passed
 to `org-export-to-file'."
   (interactive)
-  (ox-zola-alt--with-advice
+  (ox-zola-full--with-advice
    (lambda ()
      (let* ((info (org-combine-plists
-                   (org-export--get-export-attributes 'zola-alt subtreep visible-only)
+                   (org-export--get-export-attributes 'zola-full subtreep visible-only)
                    (org-export--get-buffer-attributes)
-                   (org-export-get-environment 'zola-alt subtreep)))
+                   (org-export-get-environment 'zola-full subtreep)))
             ;; Apply filter to fix :hugo-base-dir (workaround for ox-hugo 0.12.1)
-            (info (ox-zola-alt--filter-options info 'zola-alt))
-            (outfile (ox-zola-alt--output-path info)))
+            (info (ox-zola-full--filter-options info 'zola-full))
+            (outfile (ox-zola-full--output-path info)))
        (when (file-name-directory outfile)
          (make-directory (file-name-directory outfile) t))
-       (org-export-to-file 'zola-alt outfile async subtreep visible-only)))))
+       (org-export-to-file 'zola-full outfile async subtreep visible-only)))))
 
-;;; Development utilities
-;;
-;; Diagnostic functions for debugging keyword parsing issues.
-;; These help investigate problems with org-export options inheritance,
-;; particularly the ox-hugo 0.12.1 missing behavior field issue.
+;;;###autoload
+(defun ox-zola-full-export-wim-to-md (&optional all-subtrees async visible-only noerror)
+  "Export the current subtree/all subtrees/current file to a Zola post.
+Uses ox-hugo's WIM (What I Mean) detection logic.
+ALL-SUBTREES, ASYNC, VISIBLE-ONLY, and NOERROR are passed to ox-hugo."
+  (interactive "P")
+  (ox-zola-full--with-advice
+   (lambda ()
+     (org-hugo-export-wim-to-md all-subtrees async visible-only noerror))))
 
-(defun ox-zola-alt-diagnose ()
-  "Check if zola-alt backend properly inherits HUGO_BASE_DIR."
+;;;###autoload
+(defun ox-zola-full-export-to-md-and-open (&optional async subtreep visible-only)
+  "Export current buffer to a Zola Markdown file and open it."
   (interactive)
-  (let* ((backend (org-export-get-backend 'zola-alt))
-         (parent (and backend (org-export-backend-parent backend)))
-         (all-opts (org-export-get-all-options 'zola-alt))
-         (base-dir-opts (seq-filter
-                         (lambda (o) (eq (car o) :hugo-base-dir))
-                         all-opts))
-         (keywords (mapcar (lambda (o) (nth 1 o)) base-dir-opts)))
-    (message "Backend: %S, Parent: %S\nKeywords for :hugo-base-dir: %S"
-             (and backend (org-export-backend-name backend))
-             parent
-             keywords)))
+  (if async
+      (ox-zola-full-export-to-md async subtreep visible-only)
+    (find-file-other-window (ox-zola-full-export-to-md nil subtreep visible-only))))
 
-(defun ox-zola-alt-diagnose-parsing ()
-  "Diagnose keyword parsing in current Org buffer.
-Shows what each layer of org-export returns for :hugo-base-dir."
-  (interactive)
-  (unless (derived-mode-p 'org-mode)
-    (user-error "Not in org-mode buffer"))
-  (let* ((buffer-keywords
-          (save-excursion
-            (goto-char (point-min))
-            (let (found (case-fold-search t))
-              (while (re-search-forward "^#\\+\\(hugo_base_dir\\|zola_base_dir\\):" nil t)
-                (push (substring-no-properties (match-string 1)) found))
-              (nreverse found))))
-         (inbuffer-opts (org-export--get-inbuffer-options 'zola-alt))
-         (full-env (org-export-get-environment 'zola-alt))
-         (filtered-env (ox-zola-alt--filter-options (copy-sequence full-env) 'zola-alt))
-         (hugo-inbuffer (org-export--get-inbuffer-options 'hugo)))
-    (message
-     "=== Parsing Diagnosis ===
-Keywords in buffer: %S
-inbuffer-options zola-alt: %S
-get-environment zola-alt: %S
-after filter-options: %S
-inbuffer-options hugo: %S
-org-hugo-base-dir global: %S"
-     buffer-keywords
-     (plist-get inbuffer-opts :hugo-base-dir)
-     (plist-get full-env :hugo-base-dir)
-     (plist-get filtered-env :hugo-base-dir)
-     (plist-get hugo-inbuffer :hugo-base-dir)
-     (bound-and-true-p org-hugo-base-dir))))
-
-(defun ox-zola-alt-diagnose-keywords-alist ()
-  "Show how HUGO_BASE_DIR entries are structured in the keywords alist.
-Output goes to *ox-zola-alt-diag* buffer."
-  (interactive)
-  (let* ((all-opts (org-export-get-all-options 'zola-alt))
-         (keywords
-          (let (kw)
-            (dolist (entry all-opts)
-              (let ((keyword (nth 1 entry)))
-                (when keyword
-                  (push (list keyword (nth 0 entry) (nth 4 entry)) kw))))
-            kw))
-         (hugo-entries (seq-filter
-                        (lambda (e) (string-equal-ignore-case (car e) "HUGO_BASE_DIR"))
-                        keywords))
-         (assoc-result (assoc-string "HUGO_BASE_DIR" keywords t)))
-    (with-current-buffer (get-buffer-create "*ox-zola-alt-diag*")
-      (erase-buffer)
-      (insert "=== Keywords Alist Diagnosis ===\n\n")
-      (insert (format "Total options: %d, Total keywords: %d\n\n" (length all-opts) (length keywords)))
-      (insert "HUGO_BASE_DIR entries (first = what assoc-string finds):\n")
-      (dolist (e hugo-entries)
-        (insert (format "  %S\n" e)))
-      (insert (format "\nassoc-string result: %S\n" assoc-result))
-      (display-buffer (current-buffer)))))
-
-(defun ox-zola-alt-diagnose-raw-options ()
-  "Show raw options-alist entries for :hugo-base-dir from each backend.
-Output goes to *ox-zola-alt-diag* buffer."
-  (interactive)
-  (let* ((zola-alt-backend (org-export-get-backend 'zola-alt))
-         (hugo-backend (org-export-get-backend 'hugo))
-         (zola-opts (and zola-alt-backend (org-export-backend-options zola-alt-backend)))
-         (hugo-opts (and hugo-backend (org-export-backend-options hugo-backend)))
-         (zola-base-dir (seq-filter (lambda (o) (eq (car o) :hugo-base-dir)) zola-opts))
-         (hugo-base-dir (seq-filter (lambda (o) (eq (car o) :hugo-base-dir)) hugo-opts)))
-    (with-current-buffer (get-buffer-create "*ox-zola-alt-diag*")
-      (erase-buffer)
-      (insert "=== Raw Options-Alist for :hugo-base-dir ===\n\n")
-      (insert "Format: (:property \"KEYWORD\" default eval-default behavior)\n\n")
-      (insert "--- zola-alt backend (own options): ---\n")
-      (dolist (e zola-base-dir)
-        (insert (format "  %S\n" e)))
-      (insert "\n--- hugo backend (own options): ---\n")
-      (dolist (e hugo-base-dir)
-        (insert (format "  %S\n" e)))
-      (insert (format "\nox-hugo version: %s\n"
-                      (if (boundp 'org-hugo-version) org-hugo-version "unknown")))
-      (display-buffer (current-buffer)))))
-
-(provide 'ox-zola-alt)
-;;; ox-zola-alt.el ends here
+(provide 'ox-zola-full)
+;;; ox-zola-full.el ends here

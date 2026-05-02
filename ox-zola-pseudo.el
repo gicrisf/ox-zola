@@ -1,4 +1,4 @@
-;;; ox-zola-full.el --- Full Zola export backend (advice-based) -*- lexical-binding: t; -*-
+;;; ox-zola-pseudo.el --- Pseudo Zola export backend (legacy advice-based) -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2023-2024 Giovanni Crisalfi
 ;;
@@ -13,9 +13,12 @@
 ;;
 ;;; Commentary:
 ;;
-;; Full-featured Zola export backend using an advice-based approach
+;; Legacy Zola export backend using an advice-based pseudo-backend approach
 ;; on top of ox-hugo.  Replaces ox-hugo's frontmatter generation,
 ;; serializer, and link transcoder with Zola-compatible versions.
+;;
+;; NOTE: This backend is kept for users who prefer the pseudo-backend approach.
+;; For most users, the derived backend in ox-zola-full.el is recommended.
 ;;
 ;; Architecture:
 ;;   1. Tear down the real Hugo backend, define a pseudo-one with our own
@@ -33,7 +36,7 @@
 ;; approach ran into: because org-hugo-body-filter calls the overridden
 ;; org-hugo--get-front-matter, it naturally gets the Zola version too.
 ;;
-;; This file is loaded by ox-zola.el when `ox-zola-backend' is 'full.
+;; This file is loaded by ox-zola.el when `ox-zola-backend' is 'pseudo.
 ;; Users should not require this file directly; use ox-zola.el instead.
 ;;
 ;;; Code:
@@ -995,33 +998,33 @@ if an error occurs (via `unwind-protect')."
       (advice-remove 'org-hugo-link #'ox-zola-link))))
 
 ;;;###autoload
-(defun ox-zola-full-export-wim-to-md (&optional all-subtrees async visible-only noerror)
+(defun ox-zola-pseudo-export-wim-to-md (&optional all-subtrees async visible-only noerror)
   "Export the current subtree/all subtrees/current file to a Zola post."
   (interactive "P")
   (ox-zola--sandwiching
    (lambda () (org-hugo-export-wim-to-md all-subtrees async visible-only noerror))))
 
 ;;;###autoload
-(defun ox-zola-full-export-to-md (&optional async subtreep visible-only)
+(defun ox-zola-pseudo-export-to-md (&optional async subtreep visible-only)
   "Export current buffer to a Zola-compatible Markdown file."
   (interactive)
   (ox-zola--sandwiching
    (lambda () (org-hugo-export-to-md async subtreep visible-only))))
 
 ;;;###autoload
-(defun ox-zola-full-export-as-md (&optional async subtreep visible-only)
+(defun ox-zola-pseudo-export-as-md (&optional async subtreep visible-only)
   "Export current buffer to a Zola Markdown buffer."
   (interactive)
   (ox-zola--sandwiching
    (lambda () (org-hugo-export-as-md async subtreep visible-only))))
 
 ;;;###autoload
-(defun ox-zola-full-export-to-md-and-open (&optional async subtreep visible-only)
+(defun ox-zola-pseudo-export-to-md-and-open (&optional async subtreep visible-only)
   "Export current buffer to a Zola Markdown file and open it."
   (interactive)
   (if async
-      (ox-zola-full-export-to-md async subtreep visible-only)
-    (find-file (ox-zola-full-export-to-md nil subtreep visible-only))))
+      (ox-zola-pseudo-export-to-md async subtreep visible-only)
+    (find-file (ox-zola-pseudo-export-to-md nil subtreep visible-only))))
 
-(provide 'ox-zola-full)
-;;; ox-zola-full.el ends here
+(provide 'ox-zola-pseudo)
+;;; ox-zola-pseudo.el ends here
