@@ -405,6 +405,24 @@ Replaces Hugo's relref shortcode with Zola's @/ path syntax."
                 (format "[%s](%s)" desc rewritten)
               (format "<%s>" rewritten))))))))
 
+(defun ox-zola-full--format-shortcode-args (attr-sc)
+  "Format ATTR-SC plist as Zola shortcode named arguments.
+Returns a string like: id=\"abc123\", width=\"100\""
+  (let ((pairs nil)
+        (plist attr-sc))
+    (while plist
+      (let* ((key (pop plist))
+             (val (pop plist))
+             (val-str (if (stringp val)
+                          (replace-regexp-in-string
+                           "\\`\"\\(.*\\)\"\\'" "\\1" val)
+                        val)))
+        (push (format "%s=\"%s\""
+                      (substring (symbol-name key) 1)
+                      val-str)
+              pairs)))
+    (mapconcat #'identity (nreverse pairs) ", ")))
+
 (defun ox-zola-full-special-block (special-block contents info)
   "Transcode SPECIAL-BLOCK to Zola shortcode syntax.
 CONTENTS is the block contents.  INFO is the export plist.
@@ -436,36 +454,79 @@ Zola shortcode syntax:
                       (if (plist-get block-type-plist :raw)
                           (org-element-interpret-data (org-element-contents special-block))
                         contents)))))
-    (when contents
-      (cond
-       ;; Paired shortcode (block-style)
-       ((cl-member block-type paired-shortcodes
-                   :test (lambda (b sc)
-                           (string-match-p (format sc-regexp b) sc)))
-        (let* ((attr-sc (org-export-read-attribute :attr_shortcode special-block))
-               ;; Positional arguments
-               (pos-args (and (null attr-sc)
-                              (let* ((raw-list (org-element-property :attr_shortcode special-block))
-                                     (raw-str (mapconcat #'identity raw-list " ")))
-                                (org-string-nw-p raw-str))))
-               ;; Named arguments
-               (named-args (unless pos-args
-                             (let* ((couples
-                                     (cl-loop for (a b) on attr-sc by #'cddr while b
-                                              collect (list (substring (symbol-name a) 1) b)))
-                                    (raw-str
-                                     (mapconcat (lambda (x) (concat (car x) "=" (cadr x))) couples ", ")))
-                               (org-string-nw-p raw-str))))
-               (sc-args (or pos-args named-args))
-               (sc-args (if sc-args (concat " " sc-args " ") ""))
-               (sc-begin (format "%s{%s %s(%s) %s}"
-                                 trim-pre-tag "%" block-type sc-args "%"))
-               (sc-end (format "{%s end %s}%s"
-                               "%" "%" trim-post-tag)))
-          (format "%s\n%s\n%s" sc-begin contents sc-end)))
-       ;; Default: fall back to ox-hugo's handling
-       (t
-        (org-hugo-special-block special-block contents info))))))
+    (cond
+     ;; Paired shortcode (block-style): requires content + in paired list
+     ((and contents
+           (cl-member block-type paired-shortcodes
+                      :test (lambda (b sc)
+                              (string-match-p (format sc-regexp b) sc))))
+      (let* ((attr-sc (org-export-read-attribute :attr_shortcode special-block))
+             ;; Positional arguments (raw text, no :key prefix)
+             (pos-args (and (null attr-sc)
+                            (let* ((raw-list (org-element-property :attr_shortcode special-block))
+                                   (raw-str (mapconcat #'identity raw-list " ")))
+                              (org-string-nw-p raw-str))))
+             ;; Named arguments (quoted Zola style)
+             (named-args (when (and (not pos-args) attr-sc)
+                           (ox-zola-full--format-shortcode-args attr-sc)))
+             (sc-args (or pos-args named-args))
+             (sc-args (if sc-args (concat " " sc-args " ") ""))
+             (sc-begin (format "%s{%s %s(%s) %s}"
+                               trim-pre-tag "%" block-type sc-args "%"))
+             (sc-end (format "{%s end %s}%s"
+                             "%" "%" trim-post-tag)))
+        (format "%s\n%s\n%s" sc-begin contents sc-end)))
+     ;; Description block: store in frontmatter, suppress body output
+     ((string= block-type "description")
+      (when contents
+        (setq info (plist-put info :description contents)))
+      "")
+     ;; Details block: semantic HTML with optional <summary>
+     ((string= block-type "details")
+      (if (not contents)
+          ""
+        (let* ((sep-re "\\(?:\\`\\|\n\\)[ \t]*---[ \t]*\n")
+               (sep-pos (string-match sep-re contents))
+               (summary (when sep-pos
+                          (substring contents 0 (match-beginning 0))))
+               (body (if sep-pos (substring contents (match-end 0)) contents)))
+          (format "%s<details>\n%s%s\n</details>%s"
+                  (or trim-pre-tag "")
+                  (if (org-string-nw-p summary)
+                      (format "<summary>%s</summary>\n" summary)
+                    "")
+                  body
+                  (or trim-post-tag "")))))
+     ;; Aside block: semantic HTML
+     ((string= block-type "aside")
+      (if contents
+          (format "%s<aside>\n%s\n</aside>%s" trim-pre-tag contents trim-post-tag)
+        ""))
+     ;; Non-paired shortcode: Zola inline syntax {{ name(args) }}
+     (t
+      (let* ((attr-sc (org-export-read-attribute :attr_shortcode special-block))
+             ;; Positional args from attr_shortcode raw text
+             (pos-args-from-attrs (and (null attr-sc)
+                                       (let* ((raw-list (org-element-property :attr_shortcode special-block))
+                                              (raw-str (mapconcat #'identity raw-list " ")))
+                                         (org-string-nw-p raw-str))))
+             ;; Positional args from block body content
+             (pos-args-from-body (and (null attr-sc)
+                                      (not pos-args-from-attrs)
+                                      contents
+                                      (org-string-nw-p contents)))
+             ;; Named args from attr_shortcode :key val pairs
+             (named-args (when (and attr-sc
+                                    (not pos-args-from-attrs)
+                                    (not pos-args-from-body))
+                           (ox-zola-full--format-shortcode-args attr-sc)))
+             ;; Final args string
+             (sc-args (or pos-args-from-attrs
+                          (when pos-args-from-body
+                            (format "\"%s\"" pos-args-from-body))
+                          named-args
+                          "")))
+        (format "%s{{ %s(%s) }}%s" trim-pre-tag block-type sc-args trim-post-tag))))))
 
 ;;; Derived backend
 

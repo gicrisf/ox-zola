@@ -2,7 +2,6 @@
 
 ;;; Commentary:
 ;; ERT tests for the full Zola export backend (ox-zola-full.el).
-;; Tests are organized by phase following the incremental development plan.
 
 ;;; Code:
 
@@ -19,7 +18,7 @@
     (insert-file-contents (expand-file-name filename ox-zola-full-test-data-dir))
     (buffer-string)))
 
-;;; Phase 0: Backend registration
+;;; Backend registration
 
 (ert-deftest ox-zola-full-test-backend-exists ()
   "Test that the zola-full backend is properly registered."
@@ -49,7 +48,7 @@
           (when (buffer-live-p export-buf)
             (kill-buffer export-buf)))))))
 
-;;; Phase 1: Frontmatter transformation
+;;; Frontmatter transformation
 
 (ert-deftest ox-zola-full-test-taxonomies-section ()
   "Verify [taxonomies] section appears in output."
@@ -122,7 +121,7 @@ Loading ox-zola-full should NOT change ox-hugo behavior."
           (when (buffer-live-p export-buf)
             (kill-buffer export-buf)))))))
 
-;;; Phase 2: Keyword aliases
+;;; Keyword aliases
 
 (ert-deftest ox-zola-full-test-zola-keywords-recognized ()
   "Test that ZOLA_* keywords are read via zola-full backend."
@@ -168,7 +167,7 @@ Loading ox-zola-full should NOT change ox-hugo behavior."
             (should (string-match-p "/content/articles/" result))))
       (delete-directory temp-dir :recursive))))
 
-;;; Phase 3: Single frontmatter block
+;;; Single frontmatter block
 
 (ert-deftest ox-zola-full-test-single-frontmatter ()
   "Verify exactly one frontmatter block (2 +++ markers)."
@@ -190,7 +189,7 @@ Loading ox-zola-full should NOT change ox-hugo behavior."
           (when (buffer-live-p export-buf)
             (kill-buffer export-buf)))))))
 
-;;; Phase 5: Edge cases
+;;; Edge cases
 
 (ert-deftest ox-zola-full-test-all-metadata ()
   "Test export with all metadata fields."
@@ -370,7 +369,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
         (set-buffer-modified-p nil)
         (kill-buffer)))))
 
-;;; Phase 6: Link handling (Zola-compatible, no relref)
+;;; Link handling (Zola-compatible, no relref)
 
 (ert-deftest ox-zola-full-test-no-relref-in-output ()
   "Verify no relref appears in exported Markdown."
@@ -546,6 +545,197 @@ Link from content/posts/ to content/tutorials/ should produce
                   (when (buffer-live-p export-buf)
                     (kill-buffer export-buf)))))))
       (delete-directory temp-dir :recursive))))
+
+;;; Non-paired shortcodes
+
+(ert-deftest ox-zola-full-test-non-paired-shortcode ()
+  "Verify non-paired shortcodes use Zola inline syntax."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+attr_shortcode: :id abc123\n")
+      (insert "#+begin_youtube\n#+end_youtube\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "{{ youtube(id=\"abc123\") }}" content))
+                (should-not (string-match-p "{{<" content))
+                (should-not (string-match-p ">}}" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-shortcode-multiple-args ()
+  "Verify shortcodes with multiple named arguments."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+attr_shortcode: :src img.png :alt \"A description\"\n")
+      (insert "#+begin_image\n#+end_image\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "{{ image(" content))
+                (should (string-match-p "src=\"img.png\"" content))
+                (should (string-match-p "alt=\"A description\"" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-shortcode-body-as-arg ()
+  "Verify block body content is used as positional arg."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+begin_youtube\nabc123\n#+end_youtube\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "{{ youtube(\"abc123\") }}" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-shortcode-empty-args ()
+  "Verify shortcodes with no args produce empty parens."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+begin_gist\n#+end_gist\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "{{ gist() }}" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-description-block ()
+  "Verify description block sets frontmatter and is excluded from body."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+begin_description\n")
+      (insert "SEO meta description here.\n")
+      (insert "#+end_description\n\n")
+      (insert "Body content.\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "description = \"SEO meta description" content))
+                (should-not (string-match-p "begin_description" content))
+                (should (string-match-p "Body content" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-details-block ()
+  "Verify details block produces correct HTML with summary."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+begin_details\n")
+      (insert "Click to see more\n")
+      (insert "---\n")
+      (insert "Hidden content here.\n")
+      (insert "#+end_details\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "<details>" content))
+                (should (string-match-p "<summary>Click to see more</summary>" content))
+                (should (string-match-p "Hidden content here" content))
+                (should (string-match-p "</details>" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-details-block-no-summary ()
+  "Verify details block without summary separator has no <summary>."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+begin_details\n")
+      (insert "All of this is hidden content.\n")
+      (insert "#+end_details\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "<details>" content))
+                (should-not (string-match-p "<summary>" content))
+                (should (string-match-p "All of this is hidden" content))
+                (should (string-match-p "</details>" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-details-block-sep-at-start ()
+  "Verify details block with --- at start of content has no <summary>."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+begin_details\n")
+      (insert "---\n")
+      (insert "All content is body, no summary.\n")
+      (insert "#+end_details\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "<details>" content))
+                (should-not (string-match-p "<summary>" content))
+                (should (string-match-p "All content is body" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-details-block-whitespace-sep ()
+  "Verify details block with whitespace around --- separator."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+begin_details\n")
+      (insert "Click here\n")
+      (insert "  ---  \n")
+      (insert "Revealed text.\n")
+      (insert "#+end_details\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "<details>" content))
+                (should (string-match-p "<summary>Click here</summary>" content))
+                (should (string-match-p "Revealed text" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-details-block-midline-dash ()
+  "Verify --- mid-line is NOT treated as summary separator."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n")
+      (insert "#+begin_details\n")
+      (insert "This text has a --- separator in it.\n")
+      (insert "#+end_details\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "<details>" content))
+                (should-not (string-match-p "<summary>" content))
+                ;; The whole text should be body, not split
+                (should (string-match-p "has a --- separator" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
 
 (provide 'ox-zola-full-test)
 ;;; ox-zola-full-test.el ends here
