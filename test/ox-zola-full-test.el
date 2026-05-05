@@ -511,5 +511,41 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
                     (kill-buffer export-buf)))))))
       (delete-directory temp-dir :recursive))))
 
+(ert-deftest ox-zola-full-test-cross-section-link ()
+  "Verify links across sections use correct Zola @/ path.
+Link from content/posts/ to content/tutorials/ should produce
+@/tutorials/target.md, not @/posts/target.md."
+  (let* ((org-inhibit-startup t)
+         (temp-dir (make-temp-file "ox-zola-cross-section-" t))
+         (base-dir (expand-file-name "zola-site" temp-dir))
+         (posts-dir (expand-file-name "content/posts" base-dir))
+         (tutorials-dir (expand-file-name "content/tutorials" base-dir))
+         (source-file (expand-file-name "my-post.org" posts-dir))
+         (target-file (expand-file-name "guide.org" tutorials-dir)))
+    (unwind-protect
+        (progn
+          (make-directory posts-dir t)
+          (make-directory tutorials-dir t)
+          (with-temp-file target-file
+            (insert "#+title: Guide\n\nGuide content.\n"))
+          (with-temp-buffer
+            (let ((buffer-file-name source-file))
+              (insert (format "#+title: My Post\n#+zola_base_dir: %s\n#+zola_section: posts\n\n"
+                              base-dir))
+              (insert (format "See [[file:%s][the guide]].\n" target-file))
+              (org-mode)
+              (let ((export-buf (ox-zola-full-export-as-md)))
+                (unwind-protect
+                    (with-current-buffer export-buf
+                      (let ((content (buffer-string)))
+                        (should-not (string-match-p "relref" content))
+                        ;; Should use target's section (tutorials), not source's (posts)
+                        (should (string-match-p "\\[the guide\\](@/tutorials/guide\\.md)" content))
+                        ;; Should NOT use source section
+                        (should-not (string-match-p "@/posts/guide" content))))
+                  (when (buffer-live-p export-buf)
+                    (kill-buffer export-buf)))))))
+      (delete-directory temp-dir :recursive))))
+
 (provide 'ox-zola-full-test)
 ;;; ox-zola-full-test.el ends here
