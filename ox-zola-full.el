@@ -142,9 +142,9 @@ Only calls ORIG when :hugo-base-dir is set in INFO."
 
 ;;; Options filter (workaround for ox-hugo 0.12.1 missing behavior field)
 
-(defun ox-zola-full--filter-options (info backend)
+(defun ox-zola-full--filter-options (info _backend)
   "Ensure :hugo-base-dir is set from in-buffer keyword if present.
-INFO is the export info plist, BACKEND is ignored.
+INFO is the export info plist.  _BACKEND is ignored.
 This works around ox-hugo 0.12.1 missing the behavior field on HUGO_BASE_DIR."
   (unless (plist-get info :hugo-base-dir)
     ;; Try to extract from buffer keywords directly
@@ -255,7 +255,6 @@ Zola shortcode syntax:
                                                (split-string str " "))))
                               str-list))
          (sc-regexp "\\`%%?%s\\'")
-         (html-attr (org-export-read-attribute :attr_html special-block))
          (contents (when (stringp contents)
                      (org-trim
                       (if (plist-get block-type-plist :raw)
