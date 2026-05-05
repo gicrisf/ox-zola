@@ -159,6 +159,36 @@ This works around ox-hugo 0.12.1 missing the behavior field on HUGO_BASE_DIR."
                                  (string-trim (match-string 2)))))))))
   info)
 
+;;; Zola internal link helper
+
+(defun ox-zola-full--compute-internal-link (file-path info)
+  "Compute Zola internal link path from FILE-PATH.
+Returns a path like @/section/post.md.
+
+FILE-PATH can be an absolute path, relative path, or filename.
+Uses :hugo-base-dir and :hugo-section from INFO to determine
+the target section."
+  (let* ((base-dir (plist-get info :hugo-base-dir))
+         (default-section (or (plist-get info :hugo-section) ""))
+         (slug (file-name-base (file-name-nondirectory file-path)))
+         (target-section default-section))
+    (when base-dir
+      (let* ((buffer-dir (when buffer-file-name
+                           (file-name-directory buffer-file-name)))
+             (expanded (expand-file-name file-path buffer-dir))
+             (content-dir (expand-file-name "content" base-dir)))
+        (when (string-prefix-p content-dir expanded)
+          (let ((relative (substring expanded (length content-dir))))
+            (when (string-prefix-p "/" relative)
+              (setq relative (substring relative 1)))
+            (let ((dir (ignore-errors (directory-file-name
+                                       (file-name-directory relative)))))
+              (when (and dir (not (string-empty-p dir)))
+                (setq target-section dir)))))))
+    (if (string-empty-p target-section)
+        (format "@/%s.md" slug)
+      (format "@/%s/%s.md" target-section slug))))
+
 ;;; Transcoders (special-block, link)
 
 (defun ox-zola-full-link (link desc info)
@@ -166,7 +196,8 @@ This works around ox-hugo 0.12.1 missing the behavior field on HUGO_BASE_DIR."
 DESC is the link description.  INFO is the export plist.
 
 For inline images that would use Hugo's figure shortcode,
-converts to Zola's syntax: {{ figure(src=...) }}"
+converts to Zola's syntax: {{ figure(src=...) }}.
+For internal links, uses Zola's @/ path syntax instead of Hugo relref."
   (let* ((raw-path (org-element-property :path link))
          (type (org-element-property :type link))
          (link-is-url (member type '("http" "https" "ftp" "mailto"))))
@@ -226,8 +257,153 @@ converts to Zola's syntax: {{ figure(src=...) }}"
                   (setq figure-param-str (concat figure-param-str
                                                  (format "%s=\"%s\" " name val))))))
             (format "{{ figure(%s) }}" (org-trim figure-param-str)))
-        ;; Fall back to ox-hugo's link handling
-        (org-hugo-link link desc info)))))
+        ;; Zola-compatible link handling (no Hugo relref)
+        (cond
+         ;; Custom protocol links
+         ((org-export-custom-protocol-maybe link desc 'md info))
+         ;; External URLs → standard Markdown
+         (link-is-url
+          (let ((path (concat type ":" raw-path)))
+            (if (org-string-nw-p desc)
+                (format "[%s](%s)" desc path)
+              (format "<%s>" path))))
+         ;; Coderef links → anchor link
+         ((string= type "coderef")
+          (let* ((ref-label (org-element-property :path link))
+                 (ref-info (org-hugo-link--resolve-coderef ref-label info))
+                 (ref-desc (format (org-export-get-coderef-format ref-label desc)
+                                   (plist-get ref-info :ref))))
+            (format "[%s](#%s-%s)"
+                    ref-desc
+                    (plist-get ref-info :anchor-prefix)
+                    (plist-get ref-info :line-num))))
+         ;; Radio links → anchor link
+         ((string= type "radio")
+          (let ((destination (org-export-resolve-radio-link link info)))
+            (format "[%s](#%s%s)"
+                    desc
+                    (org-blackfriday--get-ref-prefix 'radio)
+                    (org-blackfriday--valid-html-anchor-name
+                     (org-element-property :value destination)))))
+         ;; Internal links: fuzzy, id, custom-id, file
+         (t
+          (ox-zola-full--internal-or-file-link link desc info)))))))
+
+(defun ox-zola-full--internal-or-file-link (link desc info)
+  "Handle fuzzy/id/custom-id and file: links with Zola syntax.
+Replaces Hugo's relref shortcode with Zola's @/ path syntax."
+  (let* ((type (org-element-property :type link))
+         (raw-path (org-element-property :path link))
+         (raw-link (org-element-property :raw-link link)))
+    ;; First handle fuzzy/id/custom-id (internal references)
+    (if (member type '("custom-id" "id" "fuzzy"))
+        ;; Resolve the internal reference
+        (let ((destination (if (string= type "fuzzy")
+                               (org-export-resolve-fuzzy-link link info)
+                             (org-export-resolve-id-link link info))))
+          (pcase (org-element-type destination)
+            ;; Same-file heading → [desc](#anchor)
+            (`headline
+             (let ((title (org-export-data
+                           (org-element-property :title destination) info)))
+               (format "[%s](#%s)"
+                       (cond ((org-string-nw-p desc))
+                             ((org-export-numbered-headline-p destination info)
+                              (mapconcat #'number-to-string
+                                         (org-export-get-headline-number
+                                          destination info) "."))
+                             (t title))
+                       (org-hugo--get-anchor destination info))))
+            ;; Cross-file reference (resolved via ID to another file)
+            (`plain-text
+             (let* ((anchor (org-hugo-link--heading-anchor-maybe link info))
+                    (zola-path
+                     (if (and (org-string-nw-p anchor)
+                              (not (string-prefix-p "#" anchor)))
+                         ;; Anchor is a post slug (subtree export)
+                         (ox-zola-full--compute-internal-link
+                          (concat anchor ".org") info)
+                       (ox-zola-full--compute-internal-link destination info))))
+               (when (and anchor (string-prefix-p "#" anchor))
+                 (setq zola-path (concat zola-path anchor)))
+               (format "[%s](%s)"
+                       (or desc (file-name-base destination)) zola-path)))
+            ;; Other elements: source blocks, tables, targets, figures
+            (_
+             (let* ((description
+                     (or (org-string-nw-p desc)
+                         (let ((number (org-export-get-ordinal
+                                        destination info
+                                        nil #'org-html--has-caption-p)))
+                           (when number
+                             (if (atom number)
+                                 (number-to-string number)
+                               (mapconcat #'number-to-string number "."))))))
+                    (dest-link
+                     (cond
+                      ((memq (org-element-type destination)
+                             '(src-block table))
+                       (org-blackfriday--get-reference destination))
+                      ((and (org-html-standalone-image-p destination info)
+                            (eq (org-element-type destination) 'paragraph))
+                       (let ((figure-ref (org-blackfriday--get-reference
+                                          destination)))
+                         (if (org-string-nw-p figure-ref)
+                             (replace-regexp-in-string
+                              "\\`org-paragraph--"
+                              (org-blackfriday--get-ref-prefix 'figure)
+                              figure-ref)
+                           (org-export-get-reference destination info))))
+                      ((eq (org-element-type destination) 'target)
+                       (org-blackfriday--get-target-anchor destination))
+                      (t
+                       (org-export-get-reference destination info)))))
+               (if description
+                   (format "[%s](#%s)" description dest-link)
+                 "")))))
+      ;; Handle file: links
+      (let* ((path1 (replace-regexp-in-string "\\`file://" "" raw-path))
+             (path-lc (downcase path1)))
+        (if (string= ".org" (file-name-extension path-lc "."))
+            ;; Link to an Org file → compute Zola internal link
+            (let* ((ref (file-name-sans-extension
+                         (file-name-nondirectory path1)))
+                   (anchor "")
+                   (is-dummy (string-suffix-p
+                              org-hugo--preprocessed-buffer-dummy-file-suffix
+                              path-lc)))
+              (if is-dummy
+                  (progn
+                    (setq ref (string-remove-suffix
+                               org-hugo--preprocessed-buffer-dummy-file-suffix
+                               (file-name-nondirectory path1)))
+                    (when (string-match ".*\\.org::\\(#.*\\)" raw-link)
+                      (setq anchor (match-string-no-properties 1 raw-link))))
+                ;; Regular Org file → resolve search part
+                (let ((link-search-str
+                       (when (string-match ".*\\.org::\\(.*\\)" raw-link)
+                         (match-string-no-properties 1 raw-link))))
+                  (when link-search-str
+                    (setq anchor (org-hugo--search-and-get-anchor
+                                  raw-path link-search-str info)))))
+              (let ((zola-path
+                     (if (and (org-string-nw-p anchor)
+                              (not (string-prefix-p "#" anchor)))
+                         ;; Post subtree link (anchor is the slug)
+                         (ox-zola-full--compute-internal-link
+                          (concat anchor ".org") info)
+                       (ox-zola-full--compute-internal-link path1 info))))
+                (when (and anchor (string-prefix-p "#" anchor))
+                  (setq zola-path (concat zola-path anchor)))
+                (if (org-string-nw-p desc)
+                    (format "[%s](%s)" desc zola-path)
+                  (format "[%s](%s)"
+                          (or ref zola-path) zola-path))))
+          ;; Non-org file → treat as attachment
+          (let ((rewritten (org-hugo--attachment-rewrite-maybe path1 info)))
+            (if (org-string-nw-p desc)
+                (format "[%s](%s)" desc rewritten)
+              (format "<%s>" rewritten))))))))
 
 (defun ox-zola-full-special-block (special-block contents info)
   "Transcode SPECIAL-BLOCK to Zola shortcode syntax.

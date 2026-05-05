@@ -1,0 +1,18 @@
+#+title: Link Test
+#+zola_base_dir: /tmp/zola-test
+#+zola_section: posts
+
+* Heading One
+:PROPERTIES:
+:CUSTOM_ID: custom-one
+:END:
+
+Content here.
+
+* Heading Two
+
+Link to [[#custom-one][custom heading]].
+
+Link to [[*Heading One][heading by title]].
+
+External link to [[https://example.com][Example]].

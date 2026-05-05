@@ -370,5 +370,146 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
         (set-buffer-modified-p nil)
         (kill-buffer)))))
 
+;;; Phase 6: Link handling (Zola-compatible, no relref)
+
+(ert-deftest ox-zola-full-test-no-relref-in-output ()
+  "Verify no relref appears in exported Markdown."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert (ox-zola-full-test--read-fixture "with-links.org"))
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should-not (string-match-p "relref" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-same-file-heading-link ()
+  "Verify same-file heading links use Zola-compatible #anchor format."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n[[*Some Heading][Link]]\n\n* Some Heading\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should-not (string-match-p "relref" content))
+                (should (string-match-p "\\[Link\\](#" content))
+                (should (string-match-p "some-heading" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-custom-id-link ()
+  "Verify custom-id links use Zola-compatible #anchor format."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n[[#custom-one][custom heading]]\n\n\
+* Heading One\n:PROPERTIES:\n:CUSTOM_ID: custom-one\n:END:\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should-not (string-match-p "relref" content))
+                (should (string-match-p "\\[custom heading\\](#custom-one)" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-heading-title-link ()
+  "Verify links by heading title use Zola-compatible #anchor format."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n[[*Some Heading][link]]\n\n* Some Heading\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should-not (string-match-p "relref" content))
+                (should (string-match-p "\\[link\\](#" content))
+                (should (string-match-p "some-heading" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-external-url-unchanged ()
+  "Verify external URLs pass through unchanged."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n[[https://example.com][Example]]\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should (string-match-p "\\[Example\\](https://example\\.com)" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-file-link-no-relref ()
+  "Verify file: links do not use relref."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n\n[[file:other.org][other post]]\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should-not (string-match-p "relref" content))
+                ;; Should use Zola @/ path syntax
+                (should (string-match-p "\\[other post\\](@/" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-file-link-empty-section ()
+  "Verify file: links with empty section produce @/post.md not @//post.md."
+  (let ((org-inhibit-startup t)
+        (org-hugo-section ""))  ; Override default to empty
+    (with-temp-buffer
+      (insert "#+title: Test\n\n[[file:other.org][other post]]\n")
+      (org-mode)
+      (let ((export-buf (ox-zola-full-export-as-md)))
+        (unwind-protect
+            (with-current-buffer export-buf
+              (let ((content (buffer-string)))
+                (should-not (string-match-p "relref" content))
+                ;; Should NOT have double slash
+                (should-not (string-match-p "@//" content))
+                ;; Should have single slash path (no section)
+                (should (string-match-p "\\[other post\\](@/other\\.md)" content))))
+          (when (buffer-live-p export-buf)
+            (kill-buffer export-buf)))))))
+
+(ert-deftest ox-zola-full-test-file-link-with-anchor ()
+  "Verify file: links with heading anchor use Zola @/ path + #anchor."
+  (let* ((org-inhibit-startup t)
+         (temp-dir (make-temp-file "ox-zola-link-test-" t))
+         (base-dir (expand-file-name "zola-site" temp-dir))
+         (content-dir (expand-file-name "content/posts" base-dir))
+         (target-file (expand-file-name "other.org" content-dir)))
+    (unwind-protect
+        (progn
+          (make-directory content-dir t)
+          (with-temp-file target-file
+            (insert "* Some Heading\n"))
+          (with-temp-buffer
+            (let ((buffer-file-name (expand-file-name "current.org" content-dir)))
+              (insert (format "#+title: Test\n#+zola_base_dir: %s\n#+zola_section: posts\n"
+                              base-dir))
+              (insert (format "[[file:%s::*Some Heading][link]]\n" target-file))
+              (org-mode)
+              (let ((export-buf (ox-zola-full-export-as-md)))
+                (unwind-protect
+                    (with-current-buffer export-buf
+                      (let ((content (buffer-string)))
+                        (should-not (string-match-p "relref" content))
+                        (should (string-match-p "\\[link\\](@/posts/other\\.md#" content))))
+                  (when (buffer-live-p export-buf)
+                    (kill-buffer export-buf)))))))
+      (delete-directory temp-dir :recursive))))
+
 (provide 'ox-zola-full-test)
 ;;; ox-zola-full-test.el ends here
