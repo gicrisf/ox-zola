@@ -2,14 +2,25 @@
 ;;
 ;; Copyright (C) 2023-2024 Giovanni Crisalfi
 ;;
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+;;
 ;; Author: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
 ;; Maintainer: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
-;; Version: 0.1.0
-;; Keywords: org, markdown, zola
+;; Version: 0.2.0
+;; Package-Requires: ((emacs "27.2") (ox-hugo "0.8"))
+;; Keywords: wp, hypermedia, org, zola
 ;; Homepage: https://github.com/gicrisf/ox-zola
-;; Package-Requires: ((emacs "27.2") (org "9.0"))
-;;
-;; This file is not part of GNU Emacs.
 ;;
 ;;; Commentary:
 ;;
@@ -17,26 +28,25 @@
 ;;
 ;; This package provides two backends:
 ;;
-;; - `lite' (default): Lightweight, derives from ox-md, no dependencies.
+;; - `lite': Lightweight, derives from ox-md, no dependencies.
 ;;   Good for simple blogs and single-file exports.
 ;;
-;; - `full': Feature-rich, requires ox-hugo (advice-based approach).
+;; - `full' (default): Feature-rich, derives from ox-hugo.
 ;;   Provides subtree exports, shortcodes, and full frontmatter.
 ;;
 ;; To select a backend, set `ox-zola-backend' before exporting:
 ;;
-;;   (setq ox-zola-backend 'lite)  ; default, no dependencies
+;;   (setq ox-zola-backend 'lite)  ; no dependencies
 ;;   (setq ox-zola-backend 'full)  ; requires ox-hugo
-;;
-;; Then use the unified export commands:
-;;
-;;   M-x ox-zola-export-to-md      ; export file to Markdown
-;;   M-x ox-zola-export-as-md      ; export to buffer
-;;   M-x ox-zola-export-wim-to-md  ; "what I mean" export (full backend)
 ;;
 ;;; Code:
 
 (require 'org)
+
+(declare-function ox-zola-full-export-as-md "ox-zola-full")
+(declare-function ox-zola-full-export-to-md "ox-zola-full")
+(declare-function ox-zola-full-export-to-md-and-open "ox-zola-full")
+(declare-function ox-zola-full-export-wim-to-md "ox-zola-full")
 
 ;;; User Options
 
@@ -52,16 +62,12 @@
   external dependencies.  Supports file-based exports with basic
   frontmatter.
 
-- `full': Full-featured backend (default).  Uses ox-hugo with a
-  derived backend approach to produce Zola-compatible frontmatter
-  and shortcodes.  Supports subtree exports.
-
-- `pseudo': Legacy backend.  Uses ox-hugo with a pseudo-backend
-  approach (advice-based).  Kept for users who prefer this style."
+- `full': Full-featured backend (default).  Derives from ox-hugo
+  to produce Zola-compatible frontmatter and shortcodes.
+  Supports subtree exports."
   :group 'ox-zola
   :type '(choice (const :tag "Lite (no dependencies)" lite)
-                 (const :tag "Full (requires ox-hugo)" full)
-                 (const :tag "Pseudo (legacy, requires ox-hugo)" pseudo)))
+                 (const :tag "Full (requires ox-hugo)" full)))
 
 (defcustom ox-zola-base-dir nil
   "Default base directory for Zola site.
@@ -84,9 +90,6 @@ Used by both lite and full backends."
 
 (defvar ox-zola--full-loaded nil
   "Non-nil if the full backend has been loaded.")
-
-(defvar ox-zola--pseudo-loaded nil
-  "Non-nil if the pseudo backend has been loaded.")
 
 (defun ox-zola--ensure-backend ()
   "Ensure the selected backend is loaded.
@@ -112,23 +115,8 @@ Install it or switch to 'lite' backend? [y = switch to lite, n = abort] ")
                (ox-zola--ensure-backend))
            (user-error "Please install ox-hugo to use the 'full backend"))))
      'zola-full)
-    ('pseudo
-     (unless ox-zola--pseudo-loaded
-       (if (require 'ox-hugo nil t)
-           (progn
-             (require 'ox-zola-pseudo)
-             (setq ox-zola--pseudo-loaded t))
-         (if (yes-or-no-p
-              "The 'pseudo' backend requires ox-hugo which is not installed.\n\
-Install it or switch to 'lite' backend? [y = switch to lite, n = abort] ")
-             (progn
-               (setq ox-zola-backend 'lite)
-               (message "Switched to 'lite backend.  Set ox-zola-backend to 'pseudo after installing ox-hugo.")
-               (ox-zola--ensure-backend))
-           (user-error "Please install ox-hugo to use the 'pseudo backend"))))
-     'zola-pseudo)
     (_
-     (user-error "Invalid ox-zola-backend value: %s (use 'lite, 'full, or 'pseudo)"
+     (user-error "Invalid ox-zola-backend value: %s (use 'lite or 'full)"
                  ox-zola-backend))))
 
 ;;; Unified Export Commands
@@ -144,9 +132,7 @@ Uses the backend specified by `ox-zola-backend'."
       ('zola-lite
        (ox-zola-lite-export-as-md async subtreep visible-only body-only ext-plist))
       ('zola-full
-       (ox-zola-full-export-as-md async subtreep visible-only))
-      ('zola-pseudo
-       (ox-zola-pseudo-export-as-md async subtreep visible-only)))))
+       (ox-zola-full-export-as-md async subtreep visible-only)))))
 
 ;;;###autoload
 (defun ox-zola-export-to-md (&optional async subtreep visible-only body-only ext-plist)
@@ -159,9 +145,7 @@ Uses the backend specified by `ox-zola-backend'."
       ('zola-lite
        (ox-zola-lite-export-to-md async subtreep visible-only body-only ext-plist))
       ('zola-full
-       (ox-zola-full-export-to-md async subtreep visible-only))
-      ('zola-pseudo
-       (ox-zola-pseudo-export-to-md async subtreep visible-only)))))
+       (ox-zola-full-export-to-md async subtreep visible-only)))))
 
 ;;;###autoload
 (defun ox-zola-export-to-md-and-open (&optional async subtreep visible-only body-only ext-plist)
@@ -174,9 +158,7 @@ Uses the backend specified by `ox-zola-backend'."
       ('zola-lite
        (ox-zola-lite-export-to-md-and-open async subtreep visible-only body-only ext-plist))
       ('zola-full
-       (ox-zola-full-export-to-md-and-open async subtreep visible-only))
-      ('zola-pseudo
-       (ox-zola-pseudo-export-to-md-and-open async subtreep visible-only)))))
+       (ox-zola-full-export-to-md-and-open async subtreep visible-only)))))
 
 ;;;###autoload
 (defun ox-zola-export-wim-to-md (&optional all-subtrees async visible-only noerror)
@@ -194,20 +176,18 @@ With the lite backend, this falls back to file-based export."
     (pcase backend
       ('zola-lite
        (when (and all-subtrees (called-interactively-p 'any))
-         (message "Note: Subtree export requires 'full or 'pseudo backend. Doing file export."))
+         (message "Note: Subtree export requires 'full backend. Doing file export."))
        (ox-zola-lite-export-to-md nil nil visible-only))
       ('zola-full
-       (ox-zola-full-export-wim-to-md all-subtrees async visible-only noerror))
-      ('zola-pseudo
-       (ox-zola-pseudo-export-wim-to-md all-subtrees async visible-only noerror)))))
+       (ox-zola-full-export-wim-to-md all-subtrees async visible-only noerror)))))
 
 ;;;###autoload
 (defun ox-zola-switch-backend (backend)
-  "Switch to BACKEND (\\='lite, \\='full, or \\='pseudo) for Zola export.
+  "Switch to BACKEND (\\='lite or \\='full) for Zola export.
 
 Interactive command to easily switch between backends."
   (interactive
-   (list (intern (completing-read "Select backend: " '("lite" "full" "pseudo") nil t))))
+   (list (intern (completing-read "Select backend: " '("lite" "full") nil t))))
   (setq ox-zola-backend backend)
   (message "Switched to '%s backend" backend))
 
