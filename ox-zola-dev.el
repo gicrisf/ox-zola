@@ -4,9 +4,12 @@
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
 ;; Author: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
+;; Maintainer: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
 ;; Created: 2022-07-30
 ;; Modified: 2026-05-06
+;; Version: 0.3.0
 ;; Keywords: wp, hypermedia, org, zola
+;; Package-Requires: ((emacs "27.2"))
 ;; Homepage: https://github.com/gicrisf/ox-zola
 ;;
 ;; This program is free software: you can redistribute it and/or modify
@@ -60,9 +63,11 @@ Requires ox-zola to be loaded."
   (let* ((backend (org-export-get-backend 'zola))
          (parent (and backend (org-export-backend-parent backend)))
          (all-opts (org-export-get-all-options 'zola))
-         (base-dir-opts (seq-filter
-                         (lambda (o) (eq (car o) :hugo-base-dir))
-                         all-opts))
+          (base-dir-opts
+          (let (result)
+            (dolist (o all-opts (nreverse result))
+              (when (eq (car o) :hugo-base-dir)
+                (push o result))))
          (keywords (mapcar (lambda (o) (nth 1 o)) base-dir-opts)))
     (message "Backend: %S, Parent: %S\nKeywords for :hugo-base-dir: %S"
              (and backend (org-export-backend-name backend))
@@ -113,9 +118,11 @@ Output goes to *ox-zola-dev-diag* buffer."
                 (when keyword
                   (push (list keyword (nth 0 entry) (nth 4 entry)) kw))))
             kw))
-         (hugo-entries (seq-filter
-                        (lambda (e) (string-equal-ignore-case (car e) "HUGO_BASE_DIR"))
-                        keywords))
+         (hugo-entries
+          (let (result)
+            (dolist (e keywords (nreverse result))
+              (when (string-equal (downcase (car e)) "hugo_base_dir")
+                (push e result))))
          (assoc-result (assoc-string "HUGO_BASE_DIR" keywords t)))
     (with-current-buffer (get-buffer-create "*ox-zola-dev-diag*")
       (erase-buffer)
@@ -135,8 +142,16 @@ Output goes to *ox-zola-dev-diag* buffer."
          (hugo-backend (org-export-get-backend 'hugo))
          (zola-opts (and zola-backend (org-export-backend-options zola-backend)))
          (hugo-opts (and hugo-backend (org-export-backend-options hugo-backend)))
-         (zola-base-dir (seq-filter (lambda (o) (eq (car o) :hugo-base-dir)) zola-opts))
-         (hugo-base-dir (seq-filter (lambda (o) (eq (car o) :hugo-base-dir)) hugo-opts)))
+          (zola-base-dir
+           (let (result)
+             (dolist (o zola-opts (nreverse result))
+               (when (eq (car o) :hugo-base-dir)
+                 (push o result))))
+          (hugo-base-dir
+           (let (result)
+             (dolist (o hugo-opts (nreverse result))
+               (when (eq (car o) :hugo-base-dir)
+                 (push o result)))))
     (with-current-buffer (get-buffer-create "*ox-zola-dev-diag*")
       (erase-buffer)
       (insert "=== Raw Options-Alist for :hugo-base-dir ===\n\n")

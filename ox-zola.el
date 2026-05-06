@@ -4,6 +4,9 @@
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
 ;; Author: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
+;; Maintainer: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
+;; Assisted-by: Claude:claude-opus-4-5
+;; Assisted-by: DeepSeek:deepseek-v4-flash
 ;; Created: 2022-07-30
 ;; Modified: 2026-05-06
 ;; Version: 0.3.0
