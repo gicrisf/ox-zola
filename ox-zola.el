@@ -572,9 +572,10 @@ Zola shortcode syntax:
                 (org-open-file (ox-zola-export-to-md nil s v)))))))
   :options-alist
   '(;; Site structure — both ZOLA_* and HUGO_* keywords
-    (:hugo-base-dir "ZOLA_BASE_DIR" nil org-hugo-base-dir t)
+    ;; ZOLA_* keywords use ox-zola-* defaults (separate from ox-hugo)
+    (:hugo-base-dir "ZOLA_BASE_DIR" nil ox-zola-base-dir t)
     (:hugo-base-dir "HUGO_BASE_DIR" nil org-hugo-base-dir t)
-    (:hugo-section "ZOLA_SECTION" nil org-hugo-section t)
+    (:hugo-section "ZOLA_SECTION" nil ox-zola-section t)
     (:hugo-section "HUGO_SECTION" nil org-hugo-section t)
     ;; Basic metadata
     (:hugo-slug "ZOLA_SLUG" nil nil t)

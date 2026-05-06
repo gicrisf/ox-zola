@@ -44,6 +44,32 @@
   "Test that ox-zola-special-block-type-properties exists."
   (should (boundp 'ox-zola-special-block-type-properties)))
 
+(ert-deftest ox-zola-test-custom-var-base-dir-used ()
+  "Test that ox-zola-base-dir is used as default when no keyword is present."
+  (let ((org-inhibit-startup t)
+        (ox-zola-base-dir "/tmp/my-zola-site"))
+    (with-temp-buffer
+      (insert "#+title: No Base Dir\n\nContent.")
+      (org-mode)
+      (let* ((info (org-combine-plists
+                    (org-export--get-export-attributes 'zola)
+                    (org-export--get-buffer-attributes)
+                    (org-export-get-environment 'zola))))
+        (should (equal (plist-get info :hugo-base-dir) "/tmp/my-zola-site"))))))
+
+(ert-deftest ox-zola-test-custom-var-section-used ()
+  "Test that ox-zola-section is used as default when no keyword is present."
+  (let ((org-inhibit-startup t)
+        (ox-zola-section "articles"))
+    (with-temp-buffer
+      (insert "#+title: No Section\n\nContent.")
+      (org-mode)
+      (let* ((info (org-combine-plists
+                    (org-export--get-export-attributes 'zola)
+                    (org-export--get-buffer-attributes)
+                    (org-export-get-environment 'zola))))
+        (should (equal (plist-get info :hugo-section) "articles"))))))
+
 ;;; Options alist tests
 
 (ert-deftest ox-zola-test-options-alist ()

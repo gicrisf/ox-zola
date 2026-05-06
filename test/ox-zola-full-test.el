@@ -467,7 +467,8 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
 (ert-deftest ox-zola-full-test-file-link-empty-section ()
   "Verify file: links with empty section produce @/post.md not @//post.md."
   (let ((org-inhibit-startup t)
-        (org-hugo-section ""))  ; Override default to empty
+        (ox-zola-section "")    ; Override ox-zola default to empty
+        (org-hugo-section ""))  ; Override ox-hugo default to empty
     (with-temp-buffer
       (insert "#+title: Test\n\n[[file:other.org][other post]]\n")
       (org-mode)
