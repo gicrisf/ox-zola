@@ -132,7 +132,7 @@ If you have different websites generated with Zola and Hugo, you're covered. =ox
 In =~/.config/doom/packages.el=:
 
 #+begin_src emacs-lisp
-(package! ox-zola)
+(package! ox-zola :recipe (:host github :repo "gicrisf/ox-zola"))
 #+end_src
 
 In =~/.config/doom/config.el=:
