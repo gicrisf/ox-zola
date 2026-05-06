@@ -1,6 +1,15 @@
 ;;; ox-zola.el --- Org export to Zola static site generator -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2023-2024 Giovanni Crisalfi
+;; Copyright (C) 2022 Giovanni Crisalfi
+;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
+;; Author: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
+;; Created: 2022-07-30
+;; Modified: 2026-05-06
+;; Version: 0.3.0
+;; Package-Requires: ((emacs "27.2") (ox-hugo "0.8"))
+;; Keywords: wp, hypermedia, org, zola
+;; Homepage: https://github.com/gicrisf/ox-zola
 ;;
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -14,13 +23,6 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
-;;
-;; Author: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
-;; Maintainer: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
-;; Version: 0.3.0
-;; Package-Requires: ((emacs "27.2") (ox-hugo "0.8"))
-;; Keywords: wp, hypermedia, org, zola
-;; Homepage: https://github.com/gicrisf/ox-zola
 ;;
 ;;; Commentary:
 ;;
@@ -308,6 +310,8 @@ For internal links, uses Zola's @/ path syntax instead of Hugo relref."
 
 (defun ox-zola--internal-or-file-link (link desc info)
   "Handle fuzzy/id/custom-id and file: links with Zola syntax.
+LINK is the link object.  DESC is the link description.
+INFO is the export plist.
 Replaces Hugo's relref shortcode with Zola's @/ path syntax."
   (let* ((type (org-element-property :type link))
          (raw-path (org-element-property :path link))
@@ -670,7 +674,8 @@ ALL-SUBTREES, ASYNC, VISIBLE-ONLY, and NOERROR are passed to ox-hugo."
 
 ;;;###autoload
 (defun ox-zola-export-to-md-and-open (&optional async subtreep visible-only)
-  "Export current buffer to a Zola Markdown file and open it."
+  "Export current buffer to a Zola Markdown file and open it.
+ASYNC, SUBTREEP, and VISIBLE-ONLY are passed to `ox-zola-export-to-md'."
   (interactive)
   (if async
       (ox-zola-export-to-md async subtreep visible-only)

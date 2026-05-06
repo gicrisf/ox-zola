@@ -1,6 +1,13 @@
 ;;; ox-zola-dev.el --- Development utilities for ox-zola -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2023-2024 Giovanni Crisalfi
+;; Copyright (C) 2022 Giovanni Crisalfi
+;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
+;; Author: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
+;; Created: 2022-07-30
+;; Modified: 2026-05-06
+;; Keywords: wp, hypermedia, org, zola
+;; Homepage: https://github.com/gicrisf/ox-zola
 ;;
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -14,11 +21,6 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
-;;
-;; Author: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
-;; Maintainer: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
-;; Keywords: wp, hypermedia, org, zola
-;; Homepage: https://github.com/gicrisf/ox-zola
 ;;
 ;;; Commentary:
 ;;
