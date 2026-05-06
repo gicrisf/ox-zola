@@ -12,7 +12,7 @@
 (setf eldev-main-fileset '("ox-zola.el" "ox-zola-dev.el"))
 
 ;; Test files
-(setf eldev-test-fileset '("test/ox-zola-test.el" "test/ox-zola-full-test.el"))
+(setf eldev-test-fileset '("test/ox-zola-test.el"))
 
 ;; Clean build directory
 (defun eldev-clean-build ()

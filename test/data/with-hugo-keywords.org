@@ -2,4 +2,4 @@
 #+hugo_section: docs
 #+title: Hugo Keywords Post
 
-Post using HUGO_ keywords with lite backend.
+Post using HUGO_ keywords with ox-zola.
