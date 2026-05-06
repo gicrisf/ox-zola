@@ -31,9 +31,7 @@
 ;;
 ;;; Code:
 
-(require 'ox)
-
-(declare-function ox-zola--filter-options "ox-zola")
+(require 'ox-zola)
 
 ;;; Debug command
 
@@ -43,7 +41,6 @@ Requires ox-zola to be loaded."
   (interactive)
   (unless (derived-mode-p 'org-mode)
     (user-error "Not in org-mode buffer"))
-  (require 'ox-zola)
   (let ((info (ox-zola--filter-options
                (org-export-get-environment 'zola)
                'zola)))
@@ -76,7 +73,6 @@ Shows what each layer of org-export returns for :hugo-base-dir."
   (interactive)
   (unless (derived-mode-p 'org-mode)
     (user-error "Not in org-mode buffer"))
-  (require 'ox-zola)
   (let* ((buffer-keywords
           (save-excursion
             (goto-char (point-min))
