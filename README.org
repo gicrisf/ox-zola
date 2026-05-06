@@ -118,6 +118,15 @@ If you have different websites generated with Zola and Hugo, you're covered. =ox
   :straight (ox-zola :host github :repo "gicrisf/ox-zola"))
 #+end_src
 
+** With built-in =:vc= (Emacs 29+)
+
+#+begin_src emacs-lisp
+(use-package ox-zola
+  :vc (:url "https://github.com/gicrisf/ox-zola"
+            :rev :newest
+            :branch "main"))
+#+end_src
+
 ** With Doom
 
 In =~/.config/doom/packages.el=:
