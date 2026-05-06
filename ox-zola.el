@@ -556,20 +556,26 @@ Zola shortcode syntax:
                      (special-block . ox-zola-special-block))
   :menu-entry
   '(?Z "Export to Zola Markdown"
-       ((?z "Subtree/File (WIM)"
-            (lambda (a s v _b)
-              (ox-zola-export-wim-to-md nil a v)))
-        (?Z "File to buffer"
-            (lambda (a s v _b)
-              (ox-zola-export-as-md a s v)))
-        (?f "File to file"
-            (lambda (a s v _b)
-              (ox-zola-export-to-md a s v)))
-        (?o "File and open"
-            (lambda (a s v _b)
-              (if a
-                  (ox-zola-export-to-md :async s v)
-                (org-open-file (ox-zola-export-to-md nil s v)))))))
+        ((?z "Subtree or File to Md file"
+             (lambda (a s v _b)
+               (ox-zola-export-wim-to-md nil a v)))
+         (?O "Subtree or File to Md file and open"
+             (lambda (a s v _b)
+               (ox-zola-export-wim-to-md-and-open nil a v)))
+         (?A "All subtrees (or File) to Md file(s)"
+             (lambda (a s v _b)
+               (ox-zola-export-wim-to-md t a v)))
+         (?Z "File to a temporary Md buffer"
+             (lambda (a s v _b)
+               (ox-zola-export-as-md a s v)))
+         (?f "File to Md file"
+             (lambda (a s v _b)
+               (ox-zola-export-to-md a s v)))
+         (?o "File to Md file and open"
+             (lambda (a s v _b)
+               (if a
+                   (ox-zola-export-to-md :async s v)
+                 (org-open-file (ox-zola-export-to-md nil s v)))))))
   :options-alist
   '(    ;; Site structure — both ZOLA_* and HUGO_* keywords use ox-zola defaults
     (:hugo-base-dir "ZOLA_BASE_DIR" nil ox-zola-base-dir t)
@@ -669,6 +675,17 @@ ALL-SUBTREES, ASYNC, VISIBLE-ONLY, and NOERROR are passed to ox-hugo."
   (if async
       (ox-zola-export-to-md async subtreep visible-only)
     (find-file-other-window (ox-zola-export-to-md nil subtreep visible-only))))
+
+;;;###autoload
+(defun ox-zola-export-wim-to-md-and-open (&optional all-subtrees async visible-only)
+  "Export using WIM logic and open the resulting file.
+ALL-SUBTREES, ASYNC, and VISIBLE-ONLY are passed to the export function."
+  (interactive "P")
+  (if async
+      (ox-zola-export-wim-to-md all-subtrees async visible-only)
+    (let ((outfile (ox-zola-export-wim-to-md all-subtrees nil visible-only)))
+      (when (and outfile (stringp outfile))
+        (org-open-file outfile)))))
 
 (provide 'ox-zola)
 ;;; ox-zola.el ends here
