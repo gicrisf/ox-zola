@@ -1,12 +1,13 @@
-;;; ox-zola-full-test.el --- Tests for ox-zola-full -*- lexical-binding: t; -*-
+;;; ox-zola-full-test.el --- Extended tests for ox-zola -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; ERT tests for the full Zola export backend (ox-zola-full.el).
+;; Extended ERT tests for the Zola export backend (ox-zola.el).
+;; These tests cover advanced features like shortcodes, links, and edge cases.
 
 ;;; Code:
 
 (require 'ert)
-(require 'ox-zola-full)
+(require 'ox-zola)
 
 (defvar ox-zola-full-test-data-dir
   (expand-file-name "data" (file-name-directory (or load-file-name buffer-file-name)))
@@ -21,12 +22,12 @@
 ;;; Backend registration
 
 (ert-deftest ox-zola-full-test-backend-exists ()
-  "Test that the zola-full backend is properly registered."
-  (should (org-export-get-backend 'zola-full)))
+  "Test that the zola backend is properly registered."
+  (should (org-export-get-backend 'zola)))
 
 (ert-deftest ox-zola-full-test-backend-derives-from-hugo ()
-  "Test that zola-full backend derives from hugo."
-  (let ((backend (org-export-get-backend 'zola-full)))
+  "Test that zola backend derives from hugo."
+  (let ((backend (org-export-get-backend 'zola)))
     (should (eq (org-export-backend-parent backend) 'hugo))))
 
 (ert-deftest ox-zola-full-test-basic-export ()
@@ -35,7 +36,7 @@
     (with-temp-buffer
       (insert (ox-zola-full-test--read-fixture "basic-post.org"))
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -56,7 +57,7 @@
     (with-temp-buffer
       (insert (ox-zola-full-test--read-fixture "with-taxonomies.org"))
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -73,7 +74,7 @@
     (with-temp-buffer
       (insert (ox-zola-full-test--read-fixture "with-all-metadata.org"))
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -90,7 +91,7 @@
     (with-temp-buffer
       (insert (ox-zola-full-test--read-fixture "with-all-metadata.org"))
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -103,12 +104,12 @@
 
 (ert-deftest ox-zola-full-test-hugo-unaffected ()
   "Verify regular ox-hugo exports still produce Hugo-style FM.
-Loading ox-zola-full should NOT change ox-hugo behavior."
+Loading ox-zola should NOT change ox-hugo behavior."
   (let ((org-inhibit-startup t))
     (with-temp-buffer
       (insert "#+title: Test\n#+hugo_tags: foo bar\n\nBody.")
       (org-mode)
-      ;; Export with plain hugo backend (not zola-alt)
+      ;; Export with plain hugo backend (not zola)
       (let ((export-buf (org-export-to-buffer 'hugo "*Hugo Test*")))
         (unwind-protect
             (with-current-buffer export-buf
@@ -124,35 +125,35 @@ Loading ox-zola-full should NOT change ox-hugo behavior."
 ;;; Keyword aliases
 
 (ert-deftest ox-zola-full-test-zola-keywords-recognized ()
-  "Test that ZOLA_* keywords are read via zola-full backend."
+  "Test that ZOLA_* keywords are read via zola backend."
   (let ((org-inhibit-startup t))
     (with-temp-buffer
       (insert (ox-zola-full-test--read-fixture "basic-post.org"))
       (org-mode)
       (let* ((info (org-combine-plists
-                    (org-export--get-export-attributes 'zola-full)
+                    (org-export--get-export-attributes 'zola)
                     (org-export--get-buffer-attributes)
-                    (org-export-get-environment 'zola-full))))
+                    (org-export-get-environment 'zola))))
         (should (equal (plist-get info :hugo-base-dir) "/tmp/ox-zola-test"))
         (should (equal (plist-get info :hugo-section) "posts"))))))
 
 (ert-deftest ox-zola-full-test-hugo-keywords-recognized ()
-  "Test that native HUGO_* keywords work through zola-alt."
+  "Test that native HUGO_* keywords work through zola."
   (let ((org-inhibit-startup t))
     (with-temp-buffer
       (insert (ox-zola-full-test--read-fixture "with-hugo-keywords.org"))
       (org-mode)
       (let* ((info (org-combine-plists
-                    (org-export--get-export-attributes 'zola-full)
+                    (org-export--get-export-attributes 'zola)
                     (org-export--get-buffer-attributes)
-                    (org-export-get-environment 'zola-full))))
+                    (org-export-get-environment 'zola))))
         (should (equal (plist-get info :hugo-base-dir) "/tmp/hugo-site"))
         (should (equal (plist-get info :hugo-section) "docs"))))))
 
 (ert-deftest ox-zola-full-test-hugo-base-dir-used-in-output-path ()
   "Test that HUGO_BASE_DIR is used for output path computation."
   (let* ((org-inhibit-startup t)
-         (temp-dir (make-temp-file "ox-zola-alt-hugo-test-" t)))
+         (temp-dir (make-temp-file "ox-zola-hugo-test-" t)))
     (unwind-protect
         (with-temp-buffer
           ;; Use HUGO_* keywords (not ZOLA_*)
@@ -161,7 +162,7 @@ Loading ox-zola-full should NOT change ox-hugo behavior."
           (insert "#+title: Hugo Path Test\n\n")
           (insert "Content.\n")
           (org-mode)
-          (let ((result (ox-zola-full-export-to-md)))
+          (let ((result (ox-zola-export-to-md)))
             (should (file-exists-p result))
             (should (string-prefix-p temp-dir result))
             (should (string-match-p "/content/articles/" result))))
@@ -175,7 +176,7 @@ Loading ox-zola-full should NOT change ox-hugo behavior."
     (with-temp-buffer
       (insert (ox-zola-full-test--read-fixture "basic-post.org"))
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string))
@@ -197,7 +198,7 @@ Loading ox-zola-full should NOT change ox-hugo behavior."
     (with-temp-buffer
       (insert (ox-zola-full-test--read-fixture "with-all-metadata.org"))
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -217,7 +218,7 @@ This also tests nil :hugo-base-dir handling."
       (insert (ox-zola-full-test--read-fixture "no-keywords.org"))
       (org-mode)
       (condition-case err
-          (let ((export-buf (ox-zola-full-export-as-md)))
+          (let ((export-buf (ox-zola-export-as-md)))
             (unwind-protect
                 (with-current-buffer export-buf
                   (let ((content (buffer-string)))
@@ -237,7 +238,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
       (insert "#+title: No Base Dir\n\nContent.")
       (org-mode)
       (condition-case err
-          (let ((export-buf (ox-zola-full-export-as-md)))
+          (let ((export-buf (ox-zola-export-as-md)))
             (unwind-protect
                 (with-current-buffer export-buf
                   (let ((content (buffer-string)))
@@ -255,7 +256,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
       (insert (ox-zola-full-test--read-fixture "with-macro-properties.org"))
       (org-mode)
       (condition-case err
-          (let ((export-buf (ox-zola-full-export-as-md)))
+          (let ((export-buf (ox-zola-export-as-md)))
             (unwind-protect
                 (with-current-buffer export-buf
                   (let ((content (buffer-string)))
@@ -274,7 +275,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
       (insert (ox-zola-full-test--read-fixture "with-closed-subtree.org"))
       (org-mode)
       (condition-case err
-          (let ((export-buf (ox-zola-full-export-as-md)))
+          (let ((export-buf (ox-zola-export-as-md)))
             (unwind-protect
                 (with-current-buffer export-buf
                   (let ((content (buffer-string)))
@@ -286,7 +287,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
          (ert-fail (list "Export failed with error:" err)))))))
 
 (ert-deftest ox-zola-full-test-file-export ()
-  "Test file export (ox-zola-full-export-to-md)."
+  "Test file export (ox-zola-export-to-md)."
   (let* ((org-inhibit-startup t)
          (temp-dir (make-temp-file "ox-zola-full-test-" t)))
     (unwind-protect
@@ -296,7 +297,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
           (when (re-search-forward "^#\\+hugo_base_dir:.*" nil t)
             (replace-match (format "#+hugo_base_dir: %s" temp-dir)))
           (org-mode)
-          (let ((result (ox-zola-full-export-to-md)))
+          (let ((result (ox-zola-export-to-md)))
             (should (file-exists-p result))
             (should (string-suffix-p ".md" result))
             (should (string-prefix-p temp-dir result))
@@ -339,7 +340,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
             (goto-char (point-min))
             (while (search-forward "__ZOLA_BASE_DIR__" nil t)
               (replace-match base-dir t t))
-            (let ((result (ox-zola-full-export-to-md)))
+            (let ((result (ox-zola-export-to-md)))
               (should (file-exists-p result))
               (should (string-prefix-p expected-dir result))
               (should (string-suffix-p "e2e-zola-keywords.md" result))))
@@ -362,7 +363,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
             (goto-char (point-min))
             (while (search-forward "__HUGO_BASE_DIR__" nil t)
               (replace-match base-dir t t))
-            (let ((result (ox-zola-full-export-to-md)))
+            (let ((result (ox-zola-export-to-md)))
               (should (file-exists-p result))
               (should (string-prefix-p expected-dir result))
               (should (string-suffix-p "e2e-hugo-keywords.md" result))))
@@ -377,7 +378,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
     (with-temp-buffer
       (insert (ox-zola-full-test--read-fixture "with-links.org"))
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -391,7 +392,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
     (with-temp-buffer
       (insert "#+title: Test\n\n[[*Some Heading][Link]]\n\n* Some Heading\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -408,7 +409,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
       (insert "#+title: Test\n\n[[#custom-one][custom heading]]\n\n\
 * Heading One\n:PROPERTIES:\n:CUSTOM_ID: custom-one\n:END:\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -423,7 +424,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
     (with-temp-buffer
       (insert "#+title: Test\n\n[[*Some Heading][link]]\n\n* Some Heading\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -439,7 +440,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
     (with-temp-buffer
       (insert "#+title: Test\n\n[[https://example.com][Example]]\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -453,7 +454,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
     (with-temp-buffer
       (insert "#+title: Test\n\n[[file:other.org][other post]]\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -470,7 +471,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
     (with-temp-buffer
       (insert "#+title: Test\n\n[[file:other.org][other post]]\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -500,7 +501,7 @@ Regression test for org-hugo--copy-ltximg-maybe crash."
                               base-dir))
               (insert (format "[[file:%s::*Some Heading][link]]\n" target-file))
               (org-mode)
-              (let ((export-buf (ox-zola-full-export-as-md)))
+              (let ((export-buf (ox-zola-export-as-md)))
                 (unwind-protect
                     (with-current-buffer export-buf
                       (let ((content (buffer-string)))
@@ -533,7 +534,7 @@ Link from content/posts/ to content/tutorials/ should produce
                               base-dir))
               (insert (format "See [[file:%s][the guide]].\n" target-file))
               (org-mode)
-              (let ((export-buf (ox-zola-full-export-as-md)))
+              (let ((export-buf (ox-zola-export-as-md)))
                 (unwind-protect
                     (with-current-buffer export-buf
                       (let ((content (buffer-string)))
@@ -556,7 +557,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "#+attr_shortcode: :id abc123\n")
       (insert "#+begin_youtube\n#+end_youtube\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -574,7 +575,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "#+attr_shortcode: :src img.png :alt \"A description\"\n")
       (insert "#+begin_image\n#+end_image\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -591,7 +592,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "#+title: Test\n\n")
       (insert "#+begin_youtube\nabc123\n#+end_youtube\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -606,7 +607,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "#+title: Test\n\n")
       (insert "#+begin_gist\n#+end_gist\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -624,7 +625,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "#+end_description\n\n")
       (insert "Body content.\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -645,7 +646,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "Hidden content here.\n")
       (insert "#+end_details\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -665,7 +666,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "All of this is hidden content.\n")
       (insert "#+end_details\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -686,7 +687,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "All content is body, no summary.\n")
       (insert "#+end_details\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -707,7 +708,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "Revealed text.\n")
       (insert "#+end_details\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))
@@ -726,7 +727,7 @@ Link from content/posts/ to content/tutorials/ should produce
       (insert "This text has a --- separator in it.\n")
       (insert "#+end_details\n")
       (org-mode)
-      (let ((export-buf (ox-zola-full-export-as-md)))
+      (let ((export-buf (ox-zola-export-as-md)))
         (unwind-protect
             (with-current-buffer export-buf
               (let ((content (buffer-string)))

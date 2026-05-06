@@ -5,11 +5,11 @@
 (eldev-use-package-archive 'melpa)
 (eldev-use-package-archive 'gnu)
 
-;; ox-hugo (and its transitive dep tomelr) for full backend tests
+;; ox-hugo (and its transitive dep tomelr) for tests
 (eldev-add-extra-dependencies 'test '(:package ox-hugo))
 
 ;; Main project files
-(setf eldev-main-fileset '("ox-zola.el" "ox-zola-lite.el" "ox-zola-full.el" "ox-zola-dev.el"))
+(setf eldev-main-fileset '("ox-zola.el" "ox-zola-dev.el"))
 
 ;; Test files
 (setf eldev-test-fileset '("test/ox-zola-test.el" "test/ox-zola-full-test.el"))

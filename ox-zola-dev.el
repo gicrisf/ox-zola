@@ -2,14 +2,23 @@
 ;;
 ;; Copyright (C) 2023-2024 Giovanni Crisalfi
 ;;
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+;;
 ;; Author: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
 ;; Maintainer: Giovanni Crisalfi <giovanni.crisalfi@protonmail.com>
-;; Version: 0.1.0
-;; Keywords: org, markdown, zola
+;; Keywords: wp, hypermedia, org, zola
 ;; Homepage: https://github.com/gicrisf/ox-zola
-;; Package-Requires: ((emacs "27.2"))
-;;
-;; This file is not part of GNU Emacs.
 ;;
 ;;; Commentary:
 ;;
@@ -24,18 +33,20 @@
 
 (require 'ox)
 
+(declare-function ox-zola--filter-options "ox-zola")
+
 ;;; Debug command
 
 (defun ox-zola-dev-debug ()
   "Show current export settings for this buffer.
-Requires ox-zola-full to be loaded."
+Requires ox-zola to be loaded."
   (interactive)
   (unless (derived-mode-p 'org-mode)
     (user-error "Not in org-mode buffer"))
-  (require 'ox-zola-full)
-  (let ((info (ox-zola-full--filter-options
-               (org-export-get-environment 'zola-full)
-               'zola-full)))
+  (require 'ox-zola)
+  (let ((info (ox-zola--filter-options
+               (org-export-get-environment 'zola)
+               'zola)))
     (message "base-dir=%S section=%S tags=%S draft=%S"
              (plist-get info :hugo-base-dir)
              (plist-get info :hugo-section)
@@ -45,11 +56,11 @@ Requires ox-zola-full to be loaded."
 ;;; Diagnostic functions
 
 (defun ox-zola-dev-diagnose ()
-  "Check if zola-full backend properly inherits HUGO_BASE_DIR."
+  "Check if zola backend properly inherits HUGO_BASE_DIR."
   (interactive)
-  (let* ((backend (org-export-get-backend 'zola-full))
+  (let* ((backend (org-export-get-backend 'zola))
          (parent (and backend (org-export-backend-parent backend)))
-         (all-opts (org-export-get-all-options 'zola-full))
+         (all-opts (org-export-get-all-options 'zola))
          (base-dir-opts (seq-filter
                          (lambda (o) (eq (car o) :hugo-base-dir))
                          all-opts))
@@ -65,7 +76,7 @@ Shows what each layer of org-export returns for :hugo-base-dir."
   (interactive)
   (unless (derived-mode-p 'org-mode)
     (user-error "Not in org-mode buffer"))
-  (require 'ox-zola-full)
+  (require 'ox-zola)
   (let* ((buffer-keywords
           (save-excursion
             (goto-char (point-min))
@@ -73,15 +84,15 @@ Shows what each layer of org-export returns for :hugo-base-dir."
               (while (re-search-forward "^#\\+\\(hugo_base_dir\\|zola_base_dir\\):" nil t)
                 (push (substring-no-properties (match-string 1)) found))
               (nreverse found))))
-         (inbuffer-opts (org-export--get-inbuffer-options 'zola-full))
-         (full-env (org-export-get-environment 'zola-full))
-         (filtered-env (ox-zola-full--filter-options (copy-sequence full-env) 'zola-full))
+         (inbuffer-opts (org-export--get-inbuffer-options 'zola))
+         (full-env (org-export-get-environment 'zola))
+         (filtered-env (ox-zola--filter-options (copy-sequence full-env) 'zola))
          (hugo-inbuffer (org-export--get-inbuffer-options 'hugo)))
     (message
      "=== Parsing Diagnosis ===
 Keywords in buffer: %S
-inbuffer-options zola-full: %S
-get-environment zola-full: %S
+inbuffer-options zola: %S
+get-environment zola: %S
 after filter-options: %S
 inbuffer-options hugo: %S
 org-hugo-base-dir global: %S"
@@ -96,7 +107,7 @@ org-hugo-base-dir global: %S"
   "Show how HUGO_BASE_DIR entries are structured in the keywords alist.
 Output goes to *ox-zola-dev-diag* buffer."
   (interactive)
-  (let* ((all-opts (org-export-get-all-options 'zola-full))
+  (let* ((all-opts (org-export-get-all-options 'zola))
          (keywords
           (let (kw)
             (dolist (entry all-opts)
@@ -122,9 +133,9 @@ Output goes to *ox-zola-dev-diag* buffer."
   "Show raw options-alist entries for :hugo-base-dir from each backend.
 Output goes to *ox-zola-dev-diag* buffer."
   (interactive)
-  (let* ((zola-full-backend (org-export-get-backend 'zola-full))
+  (let* ((zola-backend (org-export-get-backend 'zola))
          (hugo-backend (org-export-get-backend 'hugo))
-         (zola-opts (and zola-full-backend (org-export-backend-options zola-full-backend)))
+         (zola-opts (and zola-backend (org-export-backend-options zola-backend)))
          (hugo-opts (and hugo-backend (org-export-backend-options hugo-backend)))
          (zola-base-dir (seq-filter (lambda (o) (eq (car o) :hugo-base-dir)) zola-opts))
          (hugo-base-dir (seq-filter (lambda (o) (eq (car o) :hugo-base-dir)) hugo-opts)))
@@ -132,7 +143,7 @@ Output goes to *ox-zola-dev-diag* buffer."
       (erase-buffer)
       (insert "=== Raw Options-Alist for :hugo-base-dir ===\n\n")
       (insert "Format: (:property \"KEYWORD\" default eval-default behavior)\n\n")
-      (insert "--- zola-full backend (own options): ---\n")
+      (insert "--- zola backend (own options): ---\n")
       (dolist (e zola-base-dir)
         (insert (format "  %S\n" e)))
       (insert "\n--- hugo backend (own options): ---\n")
