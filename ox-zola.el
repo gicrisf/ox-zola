@@ -173,7 +173,11 @@ and encode as TOML.  Otherwise, call ORIG with DATA and FORMAT."
   "Copy Zola property aliases in buffers returned by ORIG."
   (let ((buffer (funcall orig)))
     (with-current-buffer buffer
-      (ox-zola--copy-property-aliases))
+      (ox-zola--copy-property-aliases)
+      ;; `org-entry-put' does not always invalidate the element cache on
+      ;; older Org versions. Refresh it so property reads see the aliases.
+      (when (fboundp 'org-element-cache-reset)
+        (org-element-cache-reset)))
     buffer))
 
 ;;; Per-export advice management
