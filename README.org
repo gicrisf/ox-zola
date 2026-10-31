@@ -111,6 +111,23 @@ If you have different websites generated with Zola and Hugo, you're covered. =ox
 
 * Installation
 
+** From MELPA (recommended)
+
+Ox-zola is available on [[https://melpa.org/#/ox-zola][MELPA]]. With =use-package=:
+
+#+begin_src emacs-lisp
+(use-package ox-zola
+  :ensure t)
+#+end_src
+
+Or install it directly:
+
+#+begin_example
+M-x package-install RET ox-zola RET
+#+end_example
+
+The =ox-hugo= dependency is installed automatically.
+
 ** With Straight
 
 #+begin_src emacs-lisp
