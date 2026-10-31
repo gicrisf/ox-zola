@@ -263,6 +263,120 @@
                 (should (string-match-p "tutorials" content))))))
       (delete-directory temp-dir :recursive))))
 
+;;; Zola property and keyword aliases
+
+(ert-deftest ox-zola-test-zola-property-aliases-copy ()
+  "Test that EXPORT_ZOLA_* properties copy to EXPORT_HUGO_* names."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "* Post\n")
+      (insert ":PROPERTIES:\n")
+      (insert ":EXPORT_ZOLA_SECTION: articles\n")
+      (insert ":EXPORT_ZOLA_SECTION_FRAG: guides\n")
+      (insert ":EXPORT_ZOLA_TAGS: emacs\n")
+      (insert ":EXPORT_ZOLA_CATEGORIES: tutorials\n")
+      (insert ":EXPORT_ZOLA_WEIGHT: 7\n")
+      (insert ":EXPORT_ZOLA_TEMPLATE: page.html\n")
+      (insert ":EXPORT_ZOLA_ALIASES: old-post\n")
+      (insert ":END:\n")
+      (org-mode)
+      (goto-char (point-min))
+      (ox-zola--copy-property-aliases)
+      (should (equal (org-entry-get nil "EXPORT_HUGO_SECTION") "articles"))
+      (should (equal (org-entry-get nil "EXPORT_HUGO_SECTION_FRAG") "guides"))
+      (should (equal (org-entry-get nil "EXPORT_HUGO_TAGS") "emacs"))
+      (should (equal (org-entry-get nil "EXPORT_HUGO_CATEGORIES") "tutorials"))
+      (should (equal (org-entry-get nil "EXPORT_HUGO_WEIGHT") "7"))
+      (should (equal (org-entry-get nil "EXPORT_HUGO_LAYOUT") "page.html"))
+      (should (equal (org-entry-get nil "EXPORT_HUGO_ALIASES") "old-post")))))
+
+(ert-deftest ox-zola-test-zola-keyword-aliases ()
+  "Test that additional ZOLA_* keywords map to ox-hugo options."
+  (let ((org-inhibit-startup t))
+    (with-temp-buffer
+      (insert "#+title: Test\n")
+      (insert "#+zola_bundle: my-bundle\n")
+      (insert "#+zola_auto_set_lastmod: t\n")
+      (insert "#+zola_use_code_for_kbd: t\n")
+      (insert "#+zola_prefer_hyphen_in_tags: nil\n")
+      (org-mode)
+      (let* ((info (org-combine-plists
+                    (org-export--get-export-attributes 'zola)
+                    (org-export--get-buffer-attributes)
+                    (org-export-get-environment 'zola))))
+        (should (equal (plist-get info :hugo-bundle) "my-bundle"))
+        (should (org-hugo--plist-get-true-p info :hugo-auto-set-lastmod))
+        (should (org-hugo--plist-get-true-p info :hugo-use-code-for-kbd))
+        (should-not (org-hugo--plist-get-true-p info :hugo-prefer-hyphen-in-tags))))))
+
+(ert-deftest ox-zola-test-zola-property-export ()
+  "Test EXPORT_ZOLA_* properties in an actual subtree export."
+  (let* ((org-inhibit-startup t)
+         (temp-dir (make-temp-file "ox-zola-property-test-" t))
+         (source-file (expand-file-name "source.org" temp-dir))
+         (expected-file (expand-file-name "content/articles/my-post.md" temp-dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file source-file
+            (insert "* My Post\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":EXPORT_FILE_NAME: my-post\n")
+            (insert ":EXPORT_ZOLA_SECTION: articles\n")
+            (insert ":EXPORT_ZOLA_TAGS: emacs org-mode\n")
+            (insert ":EXPORT_ZOLA_CATEGORIES: tutorials\n")
+            (insert ":EXPORT_ZOLA_WEIGHT: 7\n")
+            (insert ":END:\n")
+            (insert "Body.\n"))
+          (let ((ox-zola-base-dir temp-dir)
+                (ox-zola-section "posts")
+                (buffer (find-file-noselect source-file)))
+            (unwind-protect
+                (with-current-buffer buffer
+                  (ox-zola-export-wim-to-md t)
+                  (should (file-exists-p expected-file))
+                  (with-temp-buffer
+                    (insert-file-contents expected-file)
+                    (let ((content (buffer-string)))
+                      (should (string-match-p "\\[taxonomies\\]" content))
+                      (should (string-match-p "emacs" content))
+                      (should (string-match-p "org-mode" content))
+                      (should (string-match-p "tutorials" content))
+                      (should (string-match-p "weight = 7" content)))))
+              (when (buffer-live-p buffer)
+                (with-current-buffer buffer
+                  (set-buffer-modified-p nil))
+                (kill-buffer buffer)))))
+      (delete-directory temp-dir :recursive))))
+
+(ert-deftest ox-zola-test-zola-property-bundle ()
+  "Test EXPORT_ZOLA_BUNDLE in a subtree export."
+  (let* ((org-inhibit-startup t)
+         (temp-dir (make-temp-file "ox-zola-bundle-test-" t))
+         (source-file (expand-file-name "source.org" temp-dir))
+         (expected-file (expand-file-name "content/articles/bundle-post/index.md" temp-dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file source-file
+            (insert "* Bundle Post\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":EXPORT_FILE_NAME: index\n")
+            (insert ":EXPORT_ZOLA_SECTION: articles\n")
+            (insert ":EXPORT_ZOLA_BUNDLE: bundle-post\n")
+            (insert ":END:\n")
+            (insert "Bundle body.\n"))
+          (let ((ox-zola-base-dir temp-dir)
+                (ox-zola-section "posts")
+                (buffer (find-file-noselect source-file)))
+            (unwind-protect
+                (with-current-buffer buffer
+                  (ox-zola-export-wim-to-md t)
+                  (should (file-exists-p expected-file)))
+              (when (buffer-live-p buffer)
+                (with-current-buffer buffer
+                  (set-buffer-modified-p nil))
+                (kill-buffer buffer)))))
+      (delete-directory temp-dir :recursive))))
+
 ;;; Frontmatter transformation tests
 
 (ert-deftest ox-zola-test-updated-field ()
@@ -873,3 +987,4 @@ Link from content/posts/ to content/tutorials/ should produce
 
 (provide 'ox-zola-test)
 ;;; ox-zola-test.el ends here
+

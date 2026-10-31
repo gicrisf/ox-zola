@@ -137,6 +137,45 @@ and encode as TOML.  Otherwise, call ORIG with DATA and FORMAT."
         (format "+++\n%s\n+++\n" (tomelr-encode transformed)))
     (funcall orig data format)))
 
+;;; Zola property aliases
+
+(defconst ox-zola--property-aliases
+  '(("EXPORT_ZOLA_SECTION" . "EXPORT_HUGO_SECTION")
+    ("EXPORT_ZOLA_SECTION_FRAG" . "EXPORT_HUGO_SECTION_FRAG")
+    ("EXPORT_ZOLA_BUNDLE" . "EXPORT_HUGO_BUNDLE")
+    ("EXPORT_ZOLA_TAGS" . "EXPORT_HUGO_TAGS")
+    ("EXPORT_ZOLA_CATEGORIES" . "EXPORT_HUGO_CATEGORIES")
+    ("EXPORT_ZOLA_WEIGHT" . "EXPORT_HUGO_WEIGHT")
+    ("EXPORT_ZOLA_DATE" . "EXPORT_HUGO_DATE")
+    ("EXPORT_ZOLA_DRAFT" . "EXPORT_HUGO_DRAFT")
+    ("EXPORT_ZOLA_UPDATED" . "EXPORT_HUGO_LASTMOD")
+    ("EXPORT_ZOLA_TEMPLATE" . "EXPORT_HUGO_LAYOUT")
+    ("EXPORT_ZOLA_ALIASES" . "EXPORT_HUGO_ALIASES")
+    ("EXPORT_ZOLA_CUSTOM_FRONT_MATTER" . "EXPORT_HUGO_CUSTOM_FRONT_MATTER")
+    ("EXPORT_ZOLA_PAIRED_SHORTCODES" . "EXPORT_HUGO_PAIRED_SHORTCODES")
+    ("EXPORT_ZOLA_AUTO_SET_LASTMOD" . "EXPORT_HUGO_AUTO_SET_LASTMOD")
+    ("EXPORT_ZOLA_LEVEL_OFFSET" . "EXPORT_HUGO_LEVEL_OFFSET")
+    ("EXPORT_ZOLA_FRONT_MATTER_KEY_REPLACE" . "EXPORT_HUGO_FRONT_MATTER_KEY_REPLACE")
+    ("EXPORT_ZOLA_PANDOC_CITATIONS" . "EXPORT_HUGO_PANDOC_CITATIONS"))
+  "Mapping from Zola property names to ox-hugo property names.")
+
+(defun ox-zola--copy-property-aliases ()
+  "Copy EXPORT_ZOLA_* properties to their EXPORT_HUGO_* equivalents."
+  (save-excursion
+    (org-map-entries
+     (lambda ()
+       (dolist (pair ox-zola--property-aliases)
+         (let ((value (org-entry-get nil (car pair) nil)))
+           (when value
+             (org-entry-put nil (cdr pair) value))))))))
+
+(defun ox-zola--preprocessed-buffer-advice (orig)
+  "Copy Zola property aliases in buffers returned by ORIG."
+  (let ((buffer (funcall orig)))
+    (with-current-buffer buffer
+      (ox-zola--copy-property-aliases))
+    buffer))
+
 ;;; Per-export advice management
 
 (defun ox-zola--with-advice (fn)
@@ -146,13 +185,17 @@ This ensures regular ox-hugo exports are unaffected."
               #'ox-zola--gen-front-matter-advice)
   (advice-add 'org-hugo--copy-ltximg-maybe :around
               #'ox-zola--copy-ltximg-advice)
+  (advice-add 'org-hugo--get-pre-processed-buffer :around
+              #'ox-zola--preprocessed-buffer-advice)
   (unwind-protect
       (let ((ox-zola--active t))
         (funcall fn))
     (advice-remove 'org-hugo--gen-front-matter
                    #'ox-zola--gen-front-matter-advice)
     (advice-remove 'org-hugo--copy-ltximg-maybe
-                   #'ox-zola--copy-ltximg-advice)))
+                   #'ox-zola--copy-ltximg-advice)
+    (advice-remove 'org-hugo--get-pre-processed-buffer
+                   #'ox-zola--preprocessed-buffer-advice)))
 
 ;;; Advice to guard org-hugo--copy-ltximg-maybe against nil :hugo-base-dir
 
@@ -616,7 +659,18 @@ Zola shortcode syntax:
     (:hugo-paired-shortcodes "HUGO_PAIRED_SHORTCODES" nil org-hugo-paired-shortcodes space)
     ;; Additional commonly used
     (:hugo-audio "ZOLA_AUDIO" nil nil)
-    (:hugo-images "ZOLA_IMAGES" nil nil newline)))
+    (:hugo-images "ZOLA_IMAGES" nil nil newline)
+    ;; Zola-named aliases for inherited ox-hugo options
+    (:hugo-auto-set-lastmod "ZOLA_AUTO_SET_LASTMOD" nil org-hugo-auto-set-lastmod t)
+    (:hugo-use-code-for-kbd "ZOLA_USE_CODE_FOR_KBD" nil org-hugo-use-code-for-kbd t)
+    (:hugo-prefer-hyphen-in-tags "ZOLA_PREFER_HYPHEN_IN_TAGS" nil org-hugo-prefer-hyphen-in-tags t)
+    (:hugo-allow-spaces-in-tags "ZOLA_ALLOW_SPACES_IN_TAGS" nil org-hugo-allow-spaces-in-tags t)
+    (:hugo-bundle "ZOLA_BUNDLE" nil nil t)
+    (:hugo-date-format "ZOLA_DATE_FORMAT" nil org-hugo-date-format t)
+    (:hugo-level-offset "ZOLA_LEVEL_OFFSET" nil "1" t)
+    (:hugo-preserve-filling "ZOLA_PRESERVE_FILLING" nil org-hugo-preserve-filling t)
+    (:hugo-delete-trailing-ws "ZOLA_DELETE_TRAILING_WS" nil org-hugo-delete-trailing-ws t)
+    (:hugo-front-matter-key-replace "ZOLA_FRONT_MATTER_KEY_REPLACE" nil nil space)))
 
 ;;; Output path computation
 
@@ -634,6 +688,26 @@ Zola shortcode syntax:
       filename)))
 
 ;;; Export commands
+
+(defun ox-zola--wim-defaults ()
+  "Return (BASE-DIR . SECTION) for a WIM export.
+Prefer the ox-zola variables, then ZOLA_*/HUGO_* buffer keywords."
+  (let ((base-dir ox-zola-base-dir)
+        (section ox-zola-section))
+    (save-excursion
+      (goto-char (point-min))
+      (let ((case-fold-search t))
+        (when (and (not base-dir)
+                   (re-search-forward
+                    "^[ \t]*#\\+\\(?:zola\\|hugo\\)_base_dir:[ \t]*\\(.+\\)"
+                    nil t))
+          (setq base-dir (string-trim (match-string 1))))
+        (goto-char (point-min))
+        (when (re-search-forward
+               "^[ \t]*#\\+\\(?:zola\\|hugo\\)_section:[ \t]*\\(.+\\)"
+               nil t)
+          (setq section (string-trim (match-string 1))))))
+    (cons base-dir section)))
 
 ;;;###autoload
 (defun ox-zola-export-as-md (&optional async subtreep visible-only)
@@ -671,9 +745,12 @@ to `org-export-to-file'."
 Uses ox-hugo's WIM (What I Mean) detection logic.
 ALL-SUBTREES, ASYNC, VISIBLE-ONLY, and NOERROR are passed to ox-hugo."
   (interactive "P")
-  (ox-zola--with-advice
-   (lambda ()
-     (org-hugo-export-wim-to-md all-subtrees async visible-only noerror))))
+  (let* ((defaults (ox-zola--wim-defaults))
+         (org-hugo-base-dir (car defaults))
+         (org-hugo-section (cdr defaults)))
+    (ox-zola--with-advice
+     (lambda ()
+       (org-hugo-export-wim-to-md all-subtrees async visible-only noerror)))))
 
 ;;;###autoload
 (defun ox-zola-export-to-md-and-open (&optional async subtreep visible-only)
